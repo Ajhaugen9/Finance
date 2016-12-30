@@ -10,7 +10,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.widgets import *
 import matplotlib.dates as mdates
 import matplotlib.finance
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import LinearLocator
 
 
 import numpy as np
@@ -192,6 +192,7 @@ class Main(QMainWindow,Ui_MainWindow):
         
     def startup_page(self):
         '''Start up page is called in _init_ and sets all the info for that page'''
+       
         self.stackedWidget.setCurrentIndex(0)
 
         #Top left stock index graph 
@@ -383,8 +384,15 @@ class Main(QMainWindow,Ui_MainWindow):
         '''hist_stock_graph geometry(-65,85,3051,1581)'''
         ehist_axis.plot(data[symbol]['Close'],color='green',lw=5,alpha=0.6) # put try/except here for wrong symbol
         ehist_axis.yaxis.tick_right()
-        ehist_axis.yaxis.set_major_locator(MaxNLocator(11))
         ehist_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
+
+        #Change the number of ticks on the x and y axis
+        ehist_axis.yaxis.set_major_locator(LinearLocator(15))
+        ehist_axis.yaxis.set_minor_locator(LinearLocator(20))
+
+        ehist_axis.xaxis.set_major_locator(LinearLocator(15))
+        ehist_axis.xaxis.set_minor_locator(LinearLocator(20))
+
 
         ##Annotate last closing price 
         #box_prop = dict(boxstyle='round',fc='green',ec='w')
@@ -417,7 +425,6 @@ class Main(QMainWindow,Ui_MainWindow):
         ehist_axis2.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
 
         #Brings the second y axis to the right of the first company
-
         ehist_axis2.spines['right'].set_position(('outward', 50))
         ehist_axis2.set_frame_on(True)
         ehist_axis2.patch.set_visible(False)
@@ -426,9 +433,9 @@ class Main(QMainWindow,Ui_MainWindow):
         ehist_axis2.yaxis.set_ticks_position('right')
         ehist_axis2.tick_params(axis='y', colors='yellow',labelsize=20)
 
-        ehist_axis2.yaxis.set_major_locator(MaxNLocator(11))
-
-
+        #Change the number of ticks on the x and y axis
+        ehist_axis2.yaxis.set_major_locator(LinearLocator(15))
+        ehist_axis2.xaxis.set_major_locator(LinearLocator(20))
 
         #Create box with second company symbol and daily change
         self.compare2.setGeometry(780,70,150,46)
@@ -516,8 +523,13 @@ class Main(QMainWindow,Ui_MainWindow):
         name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
 
         ehist_axis.clear()
+        ehist_axis.yaxis.set_major_locator(LinearLocator(15))
+        ehist_axis.yaxis.set_minor_locator(LinearLocator(20))
+
+        ehist_axis.xaxis.set_major_locator(LinearLocator(15))
+        ehist_axis.xaxis.set_minor_locator(LinearLocator(20))
         ehist_axis.grid(True, which='minor', color='w', linestyle='--')
-        ehist_axis.grid(True, which='major', color='b', linestyle='--')  
+        ehist_axis.grid(True, which='major', color='w', linestyle='-')  
         #If the top two search bars are checked then it will plot whats in the plot type search bar
         #If either of the top two search bars arw unchecked then the first company plots are deleted
         if self.hedit_initial_ck.isChecked():
@@ -574,6 +586,11 @@ class Main(QMainWindow,Ui_MainWindow):
         ehist_axis2.yaxis.tick_right()
         ehist_axis2.grid(True, which='minor', color='w', linestyle='--')
         ehist_axis2.grid(True, which='major', color='w', linestyle='-')  
+        ehist_axis.yaxis.set_major_locator(LinearLocator(15))
+        ehist_axis.yaxis.set_minor_locator(LinearLocator(20))
+
+        ehist_axis.xaxis.set_major_locator(LinearLocator(15))
+        ehist_axis.xaxis.set_minor_locator(LinearLocator(20))
         if self.hedit_add_ck.isChecked():
             if self.hedit_plot_type_ck_2.isChecked():
                 if self.hedit_plot_type_2.text() == 'Close':
@@ -889,7 +906,6 @@ class Main(QMainWindow,Ui_MainWindow):
         #    self.ehist_bcanvas = FigureCanvas(ehist_bfig)
         #    self.mplvl_hist_bgraph.addWidget(self.ehist_bcanvas)
         #    self.ehist_bcanvas.draw()
-        
 
 if __name__ == '__main__':
     import sys
@@ -925,7 +941,7 @@ if __name__ == '__main__':
     ehist_axis = ehist_fig.add_subplot(111,axisbg='#07000d') 
 
     ehist_axis.grid(True, which='minor', color='w', linestyle='--')
-    ehist_axis.grid(True, which='major', color='b', linestyle='--')  
+    ehist_axis.grid(True, which='major', color='w', linestyle='-')  
     ehist_axis.yaxis.label.set_color("green")
     ehist_axis.xaxis.label.set_color('w')
     ehist_axis.spines['bottom'].set_color("w")
@@ -949,7 +965,6 @@ if __name__ == '__main__':
     #ehist_baxis.spines['right'].set_color("w")
     #ehist_baxis.tick_params(axis='y', colors='green',labelsize=20)
     #ehist_baxis.tick_params(axis='x', colors='w',labelsize=20)
-
 
     secon_fig = Figure(facecolor='#07000d') 
     secon_fig.set_tight_layout(tight=True)
