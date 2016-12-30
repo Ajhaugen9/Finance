@@ -10,6 +10,8 @@ import matplotlib.gridspec as gridspec
 from matplotlib.widgets import *
 import matplotlib.dates as mdates
 import matplotlib.finance
+from matplotlib.ticker import MaxNLocator
+
 
 import numpy as np
 import pandas as pd
@@ -411,10 +413,11 @@ class Main(QMainWindow,Ui_MainWindow):
         self.hedit_add_study_2.setGeometry(140,440,371,40)
 
         #Plots close for new company
-        ehist_axis2.plot(data[symbol]['Close'],color='green',lw=5,alpha=0.6) # put try/except here for wrong symbol
+        ehist_axis2.plot(data[symbol]['Close'],color='yellow',lw=5,alpha=0.6) # put try/except here for wrong symbol
         ehist_axis2.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
 
         #Brings the second y axis to the right of the first company
+
         ehist_axis2.spines['right'].set_position(('outward', 50))
         ehist_axis2.set_frame_on(True)
         ehist_axis2.patch.set_visible(False)
@@ -422,6 +425,10 @@ class Main(QMainWindow,Ui_MainWindow):
         ehist_axis2.spines['right'].set_color("w")
         ehist_axis2.yaxis.set_ticks_position('right')
         ehist_axis2.tick_params(axis='y', colors='yellow',labelsize=20)
+
+        ehist_axis2.yaxis.set_major_locator(MaxNLocator(11))
+
+
 
         #Create box with second company symbol and daily change
         self.compare2.setGeometry(780,70,150,46)
