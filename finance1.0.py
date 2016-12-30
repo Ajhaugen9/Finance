@@ -18,36 +18,27 @@ import datetime
 from matplotlib.widgets import MultiCursor
 import csv
 
-info = pd.DataFrame.from_csv('stock_info.csv')
-con = pd.DataFrame.from_csv('condis.csv',header=[0,1,2]).round(2)
-
+#Sets the data frame for prices and info
 all_stocks = pd.DataFrame.from_csv('all_stocks.csv',header=[0,1])
 all_stocks.rename(columns={'MA50': 'MA_one'}, inplace=True)
 all_stocks.rename(columns={'MA200': 'MA_two'}, inplace=True)
 data = all_stocks.round(2)
+info = pd.DataFrame.from_csv('stock_info.csv')
+con = pd.DataFrame.from_csv('condis.csv',header=[0,1,2]).round(2)
 
-#company symbols (AAPL, GOOG)
+other_search = ['US Bonds','US Economy','Currency','Portfolio']
+
+#Creates a list of strings so search results have sybmol, name, and industry
+info['keys'] = info[['Company','Name','Industry']].apply(lambda x: '   '.join(x), axis=1)
+keys = list(info['keys'])
+keywords = keys+other_search
+
+#Creates a list of company symbols
 symb = []
 for sym in info['Company']:
     symb.append(sym)
-symb_lower = [x.lower() for x in symb]
 
-#company names Apple, Google
-com_names = []
-for n in info['Name']:
-    com_names.append(n)
-names_lower = [x.lower() for x in com_names]
-
-other_search = ['US Bonds','Currency','US Economy','Portfolio']
-
-sector = []
-for sec in info['Sector']:
-    sector.append(sec)
-
-industry = []
-for ind in info['Industry']:
-    industry.append(ind)
-
+#Creats dataframe of variables and sorted in ascending order
 close = []
 change = []
 pchange = []
@@ -65,9 +56,7 @@ gainer_pd = gainer_pd.round(2)
 loser_pd = gain_loss_pd.sort_values(by='% Change',ascending=True)
 loser_pd = loser_pd.round(2)
 
-keywords = symb + com_names + other_search
-
-#gets the date of today/last row in data
+#Gets the date of today/last row in data
 date_e = data.index[-1].to_pydatetime()
 year = date_e.year
 month = date_e.month
@@ -82,7 +71,6 @@ nasdaq_index = web.DataReader('^IXIC','yahoo',start, end)
 us_gdp = web.DataReader('GDP','fred',start, end) #quarterly
 
 plottypes = ['Open','High','Low','Close','High/Low Shaded','OHLC Candlestick']
-
 
 Ui_MainWindow, QMainWindow = loadUiType('new_finance.ui')
 class Main(QMainWindow,Ui_MainWindow):
@@ -105,6 +93,7 @@ class Main(QMainWindow,Ui_MainWindow):
         searching.setStringList(keywords)
         comkey = QtGui.QCompleter()
         comkey.setModel(searching)
+        print comkey
         self.start_search_bar.setCompleter(comkey)
         self.start_search_bar.returnPressed.connect(self.searching) #search bar on start page
         self.stock_index_pb.clicked.connect(self.index_window)
@@ -183,22 +172,29 @@ class Main(QMainWindow,Ui_MainWindow):
         self.startup_page()
 
     def searching(self):
-        #if its not in that list then its a company that was searched
-        #then calls the function to open and load selected window 
-        if len(self.start_search_bar.text()) not in other_search:
+        '''Called when something is searched on the start page. Takes what was searched and opens calls
+           a function to open the appropriate window
+        '''
+        
+        #If what was searched is not in other_search then its a company
+        if str(self.start_search_bar.text()) not in other_search:
             self.equity_summary()
-        elif len(self.start_search_bar.text()) == 'US Bonds':
+        elif str(self.start_search_bar.text()) == 'US Bonds':
             self.bonds_window()
-        elif len(self.start_search_bar.text()) == 'US Economy':
+        elif str(self.start_search_bar.text()) == 'US Economy':
             self.econ_window()        
-        elif len(self.start_search_bar.text()) == 'Currency':
+        elif str(self.start_search_bar.text()) == 'Currency':
             self.currency_window()
-        elif len(self.start_search_bar.text()) == 'Portfolio':
+        elif str(self.start_search_bar.text()) == 'Portfolio':
             self.portfolio_window()
         
     def startup_page(self):
+        '''Start up page is called in _init_ and sets all the info for that page'''
+       
         self.stackedWidget.setCurrentIndex(0)
-        #top left stock index graph 
+
+        #Top left stock index graph 
+        #Since its a twinx the axis tick had to be set for the second graph
         sindex_axis.plot(sp_index['Close'],color='green',lw=4)
         sindex_axis2 = sindex_axis.twinx()
         sindex_axis2.yaxis.label.set_color("w")
@@ -214,12 +210,13 @@ class Main(QMainWindow,Ui_MainWindow):
         sindex_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
         sindex_axis.xaxis.set_minor_formatter(mdates.DateFormatter('%m/&y'))
 
-        ##bottom left econ graph
+        #Bottom left econ graph
         secon_axis.plot(us_gdp['GDP'],color='green',lw=4,alpha=0.6)
         secon_axis.legend()
         secon_axis.yaxis.tick_right()
         secon_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
 
+        #Sets the Gainers Table
         gainers_pd = gainer_pd[:10]
         losers_pd = loser_pd[:10]
         gainHeaders = []
@@ -235,6 +232,7 @@ class Main(QMainWindow,Ui_MainWindow):
                 newitem.setTextAlignment(Qt.AlignCenter)
                 self.gainers_table.setItem(c,r, newitem)
 
+        #Sets the Losers Tables
         loserHeaders = []
         for column in losers_pd.columns:
             loserHeaders.append(column)
@@ -249,25 +247,23 @@ class Main(QMainWindow,Ui_MainWindow):
                 self.losers_table.setItem(c,r, newitem)
 
     def equity_summary(self):
+        '''Called when the start up page search is for a company and sets the Summary page and Chart page
+           info for the company that was searched for
+        '''
         self.stackedWidget.setCurrentIndex(1)
-        company = self.start_search_bar.text()
-        self.equity_search_bar.setText(company)
+        
+        #Gets each item in the search bar
+        name, symbol, industry = self.symbolFunction(self.start_search_bar.text())
 
-        #less than 5 means its a company symbol not name
-        if len(self.equity_search_bar.text()) <= 5:
-            symbol = str(self.equity_search_bar.text())
-            symbol_index = symb.index(symbol)       
-            name = com_names[symbol_index]
-        elif len(self.equity_search_bar.text()) > 5:
-            name = str(self.equity_search_bar.text())
-            company_index = com_names.index(name)
-            symbol = symb[company_index]
+        #Sets the equity search bar to what was searched on start page
+        self.equity_search_bar.setText(str(self.start_search_bar.text()))
 
+        #Gets the date a year ago from most recent date in data
         one_year = datetime.date(year-1,month,day-1)
         one_yr_ind = one_year.strftime('%Y-%m-%d')
         today_date = data.index[-1].strftime('%m/%d/%y')
 
-        #data  for the price lables
+        #Data  for the price lables
         price = data[symbol]['Close'][-1]
         pchg = data[symbol]['% Change'][-1]
         volume = data[symbol]['Volume'][-1]
@@ -281,7 +277,7 @@ class Main(QMainWindow,Ui_MainWindow):
         year_price = data[symbol]['Close'].loc[one_yr_ind]
         ytd_chg = ((price-year_price)/year_price)*100.0
 
-        #fill in summary labels
+        #Fill in summary labels
         self.com_name.setText(name)
         self.com_price.setText(str(price))
         self.com_chg.setText(str(pchg))
@@ -290,7 +286,8 @@ class Main(QMainWindow,Ui_MainWindow):
         self.high_label.setText(str(high))
         self.low_label.setText(str(low))
         self.value_label.setText(str(value))
-        #change the color to green if positive, red if negative
+
+        #Change the color to green if positive, red if negative
         if pchg > 0:
             self.equity_updown_sign.setText('+')
             self.equity_updown_sign.setStyleSheet('color:green')
@@ -304,7 +301,7 @@ class Main(QMainWindow,Ui_MainWindow):
             self.com_chg.setStyleSheet('color:red')
             self.equity_percent_sign.setStyleSheet('color:red')
         
-        #fill in bottom summary labels
+        #Fill in bottom summary labels
         self.price_chg_label.setText(str(price_chg))
         self.day_high_label.setText(str(high))
         self.day_low_label.setText(str(low))
@@ -313,11 +310,12 @@ class Main(QMainWindow,Ui_MainWindow):
         self.year_chg_label.setText(str(ytd_chg))
         self.cap_label.setText(str(value))
 
-        #plot the closing price for the last year
+        #Plot the closing price for the last year
         esum_axis.plot(data[symbol]['Close'],color='green',lw=4, alpha=0.6)
         esum_axis.yaxis.tick_right()
         esum_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
 
+        #Realign Y-axis to center the graph lines
         close_min = data[symbol]['Close'].loc[one_yr_ind:today_date].min()
         close_max = data[symbol]['Close'].loc[one_yr_ind:today_date].max()
         close_diff = float(close_max - close_min)
@@ -327,6 +325,7 @@ class Main(QMainWindow,Ui_MainWindow):
         ehist_axis.set_ylim([ax1_min,ax1_max])
         self.ehist_canvas.draw()
 
+        #Fill in company price table for last 10 days
         columns = ['Close','Change','Mrk Cap']
         self.price_hist_table.setHorizontalHeaderLabels(columns)   
         dates = data.index[-11:][::-1].strftime('%m/%d/%y')
@@ -341,107 +340,100 @@ class Main(QMainWindow,Ui_MainWindow):
                 newitem = QTableWidgetItem(str(item))
                 newitem.setTextAlignment(Qt.AlignCenter)
                 self.price_hist_table.setItem(c,r, newitem)
-        self.historical_chart()
+        
+        #Opens the equity summary page
         self.equity_tab.setCurrentIndex(0)
 
-    def symbolFunction(self, size, search_bar):
-        try: 
-            if size <= 5:
-                symbol = str(search_bar)
-                symbol_index = symb.index(symbol)       
-                name = com_names[symbol_index]
-            else:
-                name = str(search_bar)
-                company_index = com_names.index(name)
-                symbol = symb[company_index]
-        except:
-                print "Company not found."
+        #Sets the histotical chart page 
+        self.historical_chart()
 
-        return name, symbol, company_index
+    def symbolFunction(self, search_bar):
+        if search_bar != '':
+            key = str(search_bar).split('   ')
+            symbol = key[0]
+            name= key[1]
+            industry = key[2]
+
+        return name, symbol, industry
 
     def historical_chart(self):
+        '''Called in the equity_summary function. Plots the Histrical Chart'''
+
         self.equity_tab.setCurrentIndex(1)
+        
+        name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
 
-        # Stuff Jordan added
-        #size = len(self.start_search_bar.text()
-        #name, symbol, company_index = symbolFunction(size, self.start_search_bar.text())
-
-        if len(self.start_search_bar.text()) <= 5:
-            symbol = str(self.start_search_bar.text())
-            symbol_index = symb.index(symbol)       
-            name = com_names[symbol_index]
-        elif len(self.start_search_bar.text()) > 5:
-            name = str(self.start_search_bar.text())
-            company_index = com_names.index(name)
-            symbol = symb[company_index]
-            #symbol.to_uppercase()
-
-        #sets the search bar and check buttons on the historical chart edit popup
-        self.hedit_initial_company.setText(str(symbol))
+        #Sets the search bar and check buttons on the historical chart edit popup
+        self.hedit_initial_company.setText(str(name))
         self.hedit_initial_ck.stateChanged.disconnect()
         self.hedit_plot_type_ck.stateChanged.disconnect()
         self.hedit_initial_ck.setChecked(True)
         self.hedit_plot_type_ck.setChecked(True)
 
-        #bc we havent added a second company i made their search bars invisble
+        #Make plot and study search bar invisble for second company
+        #Becomes visible when the second company is added
         self.hedit_plot_type_ck_2.setGeometry(110,395,31,0)
         self.hedit_plot_type_2.setGeometry(140,395,371,0)
 
         self.hedit_study_ck_2.setGeometry(110,435,31,0)
         self.hedit_add_study_2.setGeometry(140,440,371,0)
 
-        #plots on hist chart
+        #Plots the closing price for the past year
+        '''hist_stock_graph geometry(-65,85,3051,1581)'''
         ehist_axis.plot(data[symbol]['Close'],color='green',lw=5,alpha=0.6) # put try/except here for wrong symbol
         ehist_axis.yaxis.tick_right()
         ehist_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
+
+        ##Annotate last closing price 
+        #box_prop = dict(boxstyle='round',fc='green',ec='w')
+        #ehist_axis.annotate(str(data[symbol]['Close'][-1]), xy=(data[symbol]['Close'][-1]),
+        #                    xytext=(data[symbol]['Close'][-1]),bbox=box_prop)
+
         self.compare1.setText(str(symbol)+'+'+str(round(data[symbol]['Change'][-1],2)))
         self.ehist_canvas.draw()        
 
     def hist_add_company(self):
-        if self.hedit_add_company.text() not in other_search:
-            if len(self.hedit_add_company.text())<= 5:
-                symbol = str(self.hedit_add_company.text())
-                symbol_index = symb.index(symbol)       
-                name = com_names[symbol_index]
-            elif len(self.hedit_add_company.text()) > 5:
-                name = str(self.hedit_add_company.text())
-                company_index = com_names.index(name)
-                symbol = symb[company_index]
+        '''Called when a second company is searched for from the graph edit. Sets the plot and
+           and study search bars and graph for the second company. Calls hedit_second_company to 
+           plot the second comapny
+        '''
 
-        #makes the plot type and study search bar visible for second company
+        name, symbol, industry = self.symbolFunction(self.hedit_add_company.text())
+
+        #Makes the plot type and study search bar visible for second company and checked
+        #Setting add_ck to checked calls hedit_second_company to plot
+        self.hedit_add_ck.stateChanged.disconnect()
         self.hedit_add_ck.setChecked(True)
         self.hedit_plot_type_ck_2.setChecked(True)
         self.hedit_plot_type_ck_2.setGeometry(110,395,31,40)
         self.hedit_plot_type_2.setGeometry(140,395,371,40)
-
         self.hedit_study_ck_2.setGeometry(110,435,31,40)
         self.hedit_add_study_2.setGeometry(140,440,371,40)
 
-        #gets the dates from the date range default is one year range
-        from_year = self.hist_date_from.date().year()
-        from_month = self.hist_date_from.date().month()
-        from_day = self.hist_date_from.date().day()
-        to_year = self.hist_date_to.date().year()
-        to_month = self.hist_date_to.date().month()
-        to_day = self.hist_date_to.date().day()
+        #Plots close for new company
+        ehist_axis2.plot(data[symbol]['Close'],color='green',lw=5,alpha=0.6) # put try/except here for wrong symbol
+        ehist_axis2.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
 
-        ehist_axis2.grid(True, color='w')
-        ehist_axis2.yaxis.label.set_color("yellow")
-        ehist_axis2.xaxis.label.set_color('w')
-        ehist_axis2.spines['left'].set_color("w")
+        #Brings the second y axis to the right of the first company
+        ehist_axis2.spines['right'].set_position(('outward', 50))
+        ehist_axis2.set_frame_on(True)
+        ehist_axis2.patch.set_visible(False)
+        ehist_axis2.spines["right"].set_visible(True)
         ehist_axis2.spines['right'].set_color("w")
+        ehist_axis2.yaxis.set_ticks_position('right')
         ehist_axis2.tick_params(axis='y', colors='yellow',labelsize=20)
 
-        self.hist_stock_graph.setGeometry(-65,85,3000,1581)
-        self.hedit_second_company()
-        self.ehist_canvas.draw()
-
+        #Create box with second company symbol and daily change
         self.compare2.setGeometry(780,70,150,46)
         if data[symbol]['Change'][-1] > 0:
             self.compare2.setText(str(symbol)+'+'+str(round(data[symbol]['Change'][-1],2)))
         else:
             self.compare2.setText(str(symbol)+'-'+str(round(data[symbol]['Change'][-1],2)))
+
+        #Resize hist graph to fit the double y axis 
+        self.hist_stock_graph.setGeometry(-65,85,2300,1581)
         self.hist_set_axis()
+        self.ehist_canvas.draw()
 
     def sec_company_summary(self):
         company2 = str(self.hedit_add_company.text())
@@ -451,17 +443,13 @@ class Main(QMainWindow,Ui_MainWindow):
         self.equity_summary()    
     
     def hist_date_buttons(self):
-        if self.equity_search_bar.text() in symb or com_names:
-            if len(self.equity_search_bar.text()) <= 5:
-                symbol = str(self.equity_search_bar.text())
-                symbol_index = symb.index(symbol)       
-                name = com_names[symbol_index]
-            elif len(self.equity_search_bar.text()) > 5:
-                name = str(self.equity_search_bar.text())
-                company_index = com_names.index(name)
-                symbol = symb[company_index]
+        name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
 
-        #changes the date to whatever is selected and then calls date change with that date
+        '''When a date button is pressed it changes the QtdateEdits to the date range 
+           selected. Whenever the QtdateEdit is changed the set_axis function is called
+           which sets the x axis to match the date range and then resizes the y axis to
+           to center the graph lines
+        '''
         if self.oned_pb.isChecked():
             self.hist_date_from.setDate(QtCore.QDate(year,month,day-1))
             self.hist_date_to.setDate(QtCore.QDate(year,month,day))
@@ -495,34 +483,36 @@ class Main(QMainWindow,Ui_MainWindow):
             self.hist_date_from.setDate(QtCore.QDate(start_year,start_month,start_day))
 
     def edit_hist_graph(self):
+        '''When the graph edit is click it opens the side window when its clicked again
+           the side window is closed
+        '''
         if self.hist_graph_edit.isChecked():
             self.hist_spacer.setGeometry(630,70,1611,46)
-            self.hist_stock_graph.setGeometry(-65,85,2301,1581)
+            self.hist_stock_graph.setGeometry(-65,85,2310,1581)
             self.hist_graph_edit.setGeometry(2150,70,81,41)
             self.tree_frame.setGeometry(2240,110,731,1551)
             self.graph_edit_header.setGeometry(2240,70,731,46)
             self.hist_graph_edit.setText('>>>')
+
         else:
             self.hist_spacer.setGeometry(630,70,2341,46)
-            self.hist_stock_graph.setGeometry(-65,85,3051,1581)
             self.hist_graph_edit.setGeometry(2870,70,81,41)
+            self.hist_stock_graph.setGeometry(-65,85,3051,1581)
             self.tree_frame.setGeometry(2240,110,0,0)
             self.graph_edit_header.setGeometry(2260,70,0,0)
             self.hist_graph_edit.setText('<<<')
 
     def hedit_first_company(self):
-        if self.hedit_initial_company.text() not in other_search:
-            if len(self.hedit_initial_company.text())<= 5:
-                symbol = str(self.hedit_initial_company.text())
-                symbol_index = symb.index(symbol)       
-                name = com_names[symbol_index]
-            elif len(self.hedit_initial_company.text()) > 5:
-                name = str(self.hedit_initial_company.text())
-                company_index = com_names.index(name)
-                symbol = symb[company_index]
+        '''Called when any of the first company search bars or check buttons are changed
+           in the graph edit side window. Plots what ever is in each of the search bars
+        '''
+        name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
 
         ehist_axis.clear()
-        ehist_axis.grid(True, color='w')
+        ehist_axis.grid(True, which='minor', color='w', linestyle='--')
+        ehist_axis.grid(True, which='major', color='b', linestyle='--')  
+        #If the top two search bars are checked then it will plot whats in the plot type search bar
+        #If either of the top two search bars arw unchecked then the first company plots are deleted
         if self.hedit_initial_ck.isChecked():
             if self.hedit_plot_type_ck.isChecked():
                 if self.hedit_plot_type.text() == 'Close':
@@ -545,6 +535,7 @@ class Main(QMainWindow,Ui_MainWindow):
                 del ehist_axis.lines[0:]
                 self.hist_replot()
 
+            #Adds as study when selected
             if self.hedit_study_ck.isChecked():
                 if self.hedit_add_study.text() == 'Bollinger Bands':
                     self.hist_boll_bands(ehist_axis,symbol)
@@ -564,23 +555,18 @@ class Main(QMainWindow,Ui_MainWindow):
             del ehist_axis.lines[0:]
             self.hist_replot()
 
+        #Sets the axis so graph lines are centered
         self.hist_set_axis()
         self.ehist_canvas.draw()        
 
     def hedit_second_company(self):
-        if self.hedit_add_company.text() not in other_search:
-            if len(self.hedit_add_company.text())<= 5:
-                symbol = str(self.hedit_add_company.text())
-                symbol_index = symb.index(symbol)       
-                name = com_names[symbol_index]
-            elif len(self.hedit_add_company.text()) > 5:
-                name = str(self.hedit_add_company.text())
-                company_index = com_names.index(name)
-                symbol = symb[company_index]
+        '''Same logic as hedit_first_company'''
+        name, symbol, industry = self.symbolFunction(self.hedit_add_company.text())
 
         ehist_axis2.clear()
         ehist_axis2.yaxis.tick_right()
-        ehist_axis2.grid(True, color='w')
+        ehist_axis2.grid(True, which='minor', color='w', linestyle='--')
+        ehist_axis2.grid(True, which='major', color='w', linestyle='-')  
         if self.hedit_add_ck.isChecked():
             if self.hedit_plot_type_ck_2.isChecked():
                 if self.hedit_plot_type_2.text() == 'Close':
@@ -600,6 +586,7 @@ class Main(QMainWindow,Ui_MainWindow):
             else:
                 del ehist_axis2.lines[0:]
                 self.hist_replot()
+
             if self.hedit_study_ck_2.isChecked():
                 if self.hedit_add_study_2.text() == 'Bollinger Bands':
                     self.hist_boll_bands(ehist_axis2,symbol)
@@ -616,26 +603,28 @@ class Main(QMainWindow,Ui_MainWindow):
                 pass
         else:
             del ehist_axis2.lines[0:]
+
             self.hedit_plot_type_ck_2.setChecked(False)
             self.hedit_add_company.setText('')
             self.hedit_plot_type_ck_2.setGeometry(110,395,31,0)
             self.hedit_plot_type_2.setGeometry(140,395,371,0)
             self.hedit_study_ck_2.setGeometry(110,435,31,0)
             self.hedit_add_study_2.setGeometry(140,440,371,0)
+
+            ehist_axis2.spines['right'].set_position(('outward',0))
+            ehist_axis2.set_frame_on(True)
+            ehist_axis2.patch.set_visible(False)
+            ehist_axis2.spines["right"].set_visible(False)
+            ehist_axis2.spines['right'].set_color("w")
+            ehist_axis2.yaxis.set_ticks_position('right')
+            ehist_axis2.tick_params(axis='y', colors='black',labelsize=20)
+            
             self.hist_replot()
         self.hist_set_axis()
         self.ehist_canvas.draw()   
 
     def hist_ma_one(self):
-        if self.equity_search_bar.text() in symb or com_names:
-            if len(self.equity_search_bar.text()) <= 5:
-                symbol = str(self.equity_search_bar.text())
-                symbol_index = symb.index(symbol)       
-                name = com_names[symbol_index]
-            elif len(self.equity_search_bar.text()) > 5:
-                name = str(self.equity_search_bar.text())
-                company_index = com_names.index(name)
-                symbol = symb[company_index]
+        name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
         if self.ma_one_plot.text() != '':
             ma1 = self.ma_one_plot.text()
             ma_one = data[symbol]['Close'].rolling(window=int(ma1)).mean()
@@ -645,15 +634,7 @@ class Main(QMainWindow,Ui_MainWindow):
             self.hist_replot()
 
     def hist_ma_two(self):
-        if self.equity_search_bar.text() in symb or com_names:
-            if len(self.equity_search_bar.text()) <= 5:
-                symbol = str(self.equity_search_bar.text())
-                symbol_index = symb.index(symbol)       
-                name = com_names[symbol_index]
-            elif len(self.equity_search_bar.text()) > 5:
-                name = str(self.equity_search_bar.text())
-                company_index = com_names.index(name)
-                symbol = symb[company_index]
+        name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
 
         if self.ma_two_plot.text() != '':
             ma2 = self.ma_two_plot.text()
@@ -664,15 +645,8 @@ class Main(QMainWindow,Ui_MainWindow):
             self.hist_replot()
 
     def hist_ma_three(self):
-        if self.equity_search_bar.text() in symb or com_names:
-            if len(self.equity_search_bar.text()) <= 5:
-                symbol = str(self.equity_search_bar.text())
-                symbol_index = symb.index(symbol)       
-                name = com_names[symbol_index]
-            elif len(self.equity_search_bar.text()) > 5:
-                name = str(self.equity_search_bar.text())
-                company_index = com_names.index(name)
-                symbol = symb[company_index]
+        name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
+
         if self.ma_three_plot.text() != '':
             ma3 = self.ma_three_plot.text()
             ma_three = data[symbol]['Close'].rolling(window=int(ma3)).mean()
@@ -693,18 +667,12 @@ class Main(QMainWindow,Ui_MainWindow):
         self.ehist_canvas.draw()
 
     def hist_set_axis(self):
-        if self.hedit_initial_company.text() not in other_search:
-            if len(self.hedit_initial_company.text())<= 5:
-                symbol = str(self.hedit_initial_company.text())
-                symbol_index = symb.index(symbol)       
-                name = com_names[symbol_index]
-            elif len(self.hedit_initial_company.text()) > 5:
-                name = str(self.hedit_initial_company.text())
-                company_index = com_names.index(name)
-                symbol = symb[company_index]
+        '''Centers the grpah lines and sets the date range x axis when ever changed'''
+        name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
 
-        symbol2 = str(self.hedit_add_company.text())
+        key = str(self.hedit_add_company.text())
 
+        #Gets the dates from the QtdateEdits
         from_year = self.hist_date_from.date().year()
         from_month = self.hist_date_from.date().month()
         from_day = self.hist_date_from.date().day()
@@ -712,14 +680,16 @@ class Main(QMainWindow,Ui_MainWindow):
         to_month = self.hist_date_to.date().month()
         to_day = self.hist_date_to.date().day()
 
-        #sets the x axis on the greaph
+        #Sets the x axis on the greaph
         ehist_axis.set_xlim([datetime.datetime(from_year,from_month,from_day,9,0,0),datetime.datetime(to_year,to_month,to_day-1,17,0,0)])
 
+        #Format the QtdateEdit to us in index
         from_ = datetime.date(from_year,from_month,from_day)
         to_ = datetime.datetime(to_year,to_month,to_day)
         from_index = from_.strftime('%Y-%m-%d')
         to_index = to_.strftime('%Y-%m-%d')
 
+        #Sets the y-axis max and min based on high and low
         close_min = data[symbol]['Close'].loc[from_index:to_index].min()
         close_max = data[symbol]['Close'].loc[from_index:to_index].max()
         close_diff = float(close_max - close_min)
@@ -727,35 +697,40 @@ class Main(QMainWindow,Ui_MainWindow):
         ax1_max = float(close_max + (close_diff*0.10))
         ehist_axis.set_ylim([ax1_min,ax1_max])
 
+        #Sets the y-axis for second company if searched for
         if self.hedit_add_company.text() != '':
-            #ehist_axis2.set_xlim([datetime.datetime(from_year,from_month,from_day,9,0,0),datetime.datetime(to_year,to_month,to_day-1,17,0,0)])
+            #Gets the symbol and name from search bar
+            key = str(self.hedit_add_company.text()).split('   ')
+            symbol2 = key[0]
+            name= key[1]
+            print 'something'
             close_min2 = data[symbol2]['Close'].loc[from_index:to_index].min()
             close_max2 = data[symbol2]['Close'].loc[from_index:to_index].max()
             close_diff2 = float(close_max2 - close_min2)
             ax1_min2 = float(close_min2 - (close_diff2*0.10))
             ax1_max2 = float(close_max2 + (close_diff2*0.10))
             ehist_axis2.set_ylim([ax1_min2,ax1_max2])
+            ehist_axis2.set_xlim([datetime.datetime(from_year,from_month,from_day,9,0,0),datetime.datetime(to_year,to_month,to_day-1,17,0,0)])
         else:
             pass
 
+        #Unchecks all the date buttons so another can be selected
         date_buttons = [self.oned_pb,self.threed_pb,self.sevend_pb,self.onem_pb,self.sixm_pb,self.oney_pb,self.fivey_pb,self.teny_pb,self.max_range_pb]
         for b in date_buttons:
             b.setChecked(False)
         self.ehist_canvas.draw() 
 
     def hist_replot(self):
-        if len(self.equity_search_bar.text()) <= 5:
-            symbol = str(self.equity_search_bar.text())
-            symbol_index = symb.index(symbol)       
-            name = com_names[symbol_index]
-        elif len(self.equity_search_bar.text()) > 5:
-            name = str(self.equity_search_bar.text())
-            company_index = com_names.index(name)
-            symbol = symb[company_index]
+        '''When a graph line has to be deleted, all the lines are deleted then this is called so
+           whatever wasnt suppose to be deleted is re plotted
+        '''
+        name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
 
+        #Delete everything
         del ehist_axis.lines[0:]
         del ehist_axis2.lines[0:]
 
+        #Checks if the fisrt company should be plotted
         if self.hedit_plot_type_ck.isChecked():
             if self.hedit_plot_type.text() == 'Close':
                 ehist_axis.plot(data[symbol]['Close'],color='green',lw=5,alpha=0.6)
@@ -776,7 +751,9 @@ class Main(QMainWindow,Ui_MainWindow):
         else:
             pass           
 
+        #Checks if the second company should be plotted
         if self.hedit_plot_type_ck_2.isChecked():
+            name, symbol, industry = self.symbolFunction(self.hedit_add_company.text())
             if self.hedit_plot_type_2.text() == 'Close':
                 ehist_axis2.plot(data[symbol]['Close'],color='yellow',lw=5,alpha=0.6)
             elif self.hedit_plot_type_2.text() == 'Open':
@@ -794,6 +771,7 @@ class Main(QMainWindow,Ui_MainWindow):
         else:
             pass          
 
+        #Checks if the moving averages should be plotted
         if self.ma_one_plot.text() != '':
             ma1 = self.ma_one_plot.text()
             ma_one = data[symbol]['Close'].rolling(window=int(ma1)).mean()
@@ -864,8 +842,6 @@ class Main(QMainWindow,Ui_MainWindow):
     #    esum_axis.yaxis.tick_right()
     #    self.hist_set_axis()
     #    self.ehist_bcanvas.draw()        
-
-
 
     def historical_table(self):
         self.equity_tab.setCurrentIndex(2)
@@ -940,8 +916,9 @@ if __name__ == '__main__':
     ehist_fig = Figure(facecolor='#07000d') 
     ehist_fig.set_tight_layout(tight=True)
     ehist_axis = ehist_fig.add_subplot(111,axisbg='#07000d') 
-    ehist_axis2 = ehist_axis.twinx()
-    ehist_axis.grid(True, color='w')
+
+    ehist_axis.grid(True, which='minor', color='w', linestyle='--')
+    ehist_axis.grid(True, which='major', color='b', linestyle='--')  
     ehist_axis.yaxis.label.set_color("green")
     ehist_axis.xaxis.label.set_color('w')
     ehist_axis.spines['bottom'].set_color("w")
@@ -950,6 +927,8 @@ if __name__ == '__main__':
     ehist_axis.spines['right'].set_color("w")
     ehist_axis.tick_params(axis='y', colors='green',labelsize=20)
     ehist_axis.tick_params(axis='x', colors='w',labelsize=20)
+
+    ehist_axis2 = ehist_axis.twinx()
 
     #ehist_bfig = Figure(facecolor='#07000d') 
     #ehist_bfig.set_tight_layout(tight=True)
