@@ -192,7 +192,6 @@ class Main(QMainWindow,Ui_MainWindow):
         
     def startup_page(self):
         '''Start up page is called in _init_ and sets all the info for that page'''
-       
         self.stackedWidget.setCurrentIndex(0)
 
         #Top left stock index graph 
@@ -384,6 +383,7 @@ class Main(QMainWindow,Ui_MainWindow):
         '''hist_stock_graph geometry(-65,85,3051,1581)'''
         ehist_axis.plot(data[symbol]['Close'],color='green',lw=5,alpha=0.6) # put try/except here for wrong symbol
         ehist_axis.yaxis.tick_right()
+        ehist_axis.yaxis.set_major_locator(MaxNLocator(11))
         ehist_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
 
         ##Annotate last closing price 
