@@ -10,7 +10,8 @@ import matplotlib.gridspec as gridspec
 from matplotlib.widgets import *
 import matplotlib.dates as mdates
 import matplotlib.finance
-from matplotlib.ticker import LinearLocator
+from matplotlib.ticker import LinearLocator, MaxNLocator
+from matplotlib.dates import AutoDateLocator
 
 
 import numpy as np
@@ -380,27 +381,177 @@ class Main(QMainWindow,Ui_MainWindow):
         self.hedit_study_ck_2.setGeometry(110,435,31,0)
         self.hedit_add_study_2.setGeometry(140,440,371,0)
 
+        ##Change the number of ticks on the x and y axis
+        ehist_axis.xaxis.set_major_locator(AutoDateLocator(minticks=15))
+        ehist_axis.yaxis.set_major_locator(LinearLocator(15))
+        date_form = mdates.DateFormatter('%m/%d/%y')
+        ehist_axis.xaxis.set_major_formatter(date_form)
+
         #Plots the closing price for the past year
         '''hist_stock_graph geometry(-65,85,3051,1581)'''
         ehist_axis.plot(data[symbol]['Close'],color='green',lw=5,alpha=0.6) # put try/except here for wrong symbol
         ehist_axis.yaxis.tick_right()
         ehist_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
 
-        #Change the number of ticks on the x and y axis
-        ehist_axis.yaxis.set_major_locator(LinearLocator(15))
-        ehist_axis.yaxis.set_minor_locator(LinearLocator(20))
+        #Hide the other Legend lines not plotted
+        self.legend_box.setGeometry(2240,120,581,70)
+        self.leg_two_color.setGeometry(0,0,0,0)
+        self.leg_three_color.setGeometry(0,0,0,0)
+        self.leg_four_color.setGeometry(0,0,0,0)
 
-        ehist_axis.xaxis.set_major_locator(LinearLocator(15))
-        ehist_axis.xaxis.set_minor_locator(LinearLocator(20))
+        self.legend_linetwo.setGeometry(0,0,0,0)
+        self.legend_linethree.setGeometry(0,0,0,0)
+        self.legend_linefour.setGeometry(0,0,0,0)
 
+        self.legend_two_price.setGeometry(0,0,0,0)
+        self.legend_three_price.setGeometry(0,0,0,0)
+        self.legend_four_price.setGeometry(0,0,0,0)
 
-        ##Annotate last closing price 
-        #box_prop = dict(boxstyle='round',fc='green',ec='w')
-        #ehist_axis.annotate(str(data[symbol]['Close'][-1]), xy=(data[symbol]['Close'][-1]),
-        #                    xytext=(data[symbol]['Close'][-1]),bbox=box_prop)
+        #Hide second company legend
+        self.legend_second_name.setGeometry(0,0,0,0)
+        self.legend_sec_pchg.setGeometry(0,0,0,0)
+
+        self.leg_sec_one_color.setGeometry(0,0,0,0)
+        self.leg_sec_two_color.setGeometry(0,0,0,0)
+        self.leg_sec_three_color.setGeometry(0,0,0,0)
+        self.leg_sec_four_color.setGeometry(0,0,0,0)
+
+        self.legend_sec_lineone.setGeometry(0,0,0,0)
+        self.legend_sec_linetwo.setGeometry(0,0,0,0)
+        self.legend_sec_linethree.setGeometry(0,0,0,0)
+        self.legend_sec_linefour.setGeometry(0,0,0,0)
+
+        self.legend_sec_one_price.setGeometry(0,0,0,0)
+        self.legend_sec_two_price.setGeometry(0,0,0,0)
+        self.legend_sec_three_price.setGeometry(0,0,0,0)
+        self.legend_sec_four_price.setGeometry(0,0,0,0)
 
         self.compare1.setText(str(symbol)+'+'+str(round(data[symbol]['Change'][-1],2)))
+        self.hist_legend()
         self.ehist_canvas.draw()        
+
+    def hist_legend(self):
+        #Data for the first compant
+        name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
+        closing = data[symbol]['Close'][-1]
+        low = data[symbol]['Low'][-1]
+        high = data[symbol]['High'][-1]
+        open = data[symbol]['Open'][-1]
+        pchg = data[symbol]['% Change'][-1]
+
+        #Data for the second company
+        #sec_name, sec_symbol, sec_industry = self.symbolFunction(self.hedit_add_company.text())
+        #sec_closing = data[sec_symbol]['Close'][-1]
+        #sec_low = data[sec_symbol]['Low'][-1]
+        #sec_high = data[sec_symbol]['High'][-1]
+        #sec_open = data[sec_symbol]['Open'][-1]
+        #sec_pchg = data[sec_symbol]['% Change'][-1]
+
+        '''The first company is always show so the first to lines in the legend will
+           always be there, this is to change the label and price'''
+        if self.hedit_initial_ck.isChecked():
+            self.legend_first_name.setText(str(name+' '+'('+symbol+')'))
+            self.legend_pchg.setText(str(pchg))
+            if self.hedit_plot_type.text() == 'Close':
+                self.legend_lineone.setText('Closing Price')
+                self.legend_one_price.setText(str(closing))
+            elif self.hedit_plot_type.text() == 'Open':
+                self.legend_lineone.setText('Opening Price')
+                self.legend_one_price.setText(str(open))
+            elif self.hedit_plot_type.text() == 'High':
+                self.legend_lineone.setText('Highest Price')
+                self.legend_one_price.setText(str(high))
+            elif self.hedit_plot_type.text() == 'Low':
+                self.legend_lineone.setText('Lowest Price')
+                self.legend_one_price.setText(str(low))
+            elif self.hedit_plot_type.text() == 'High/Low Shaded':
+                self.legend_lineone.setText('High/Low Shaded')
+                self.legend_one_price.setText('')
+            else:
+                pass
+
+            '''If boll bands are selected then that takes 3 extra lines in the legend
+               EMA is 1 extra line. If study check isnt checked then the legend box is 
+               adjusted to fit just to top 2 lines'''
+            if self.hedit_study_ck.isChecked():
+                if self.hedit_add_study.text() == 'Bollinger Bands':
+                    self.legend_box.setGeometry(1420,120,581,171)
+
+                    self.leg_two_color.setGeometry(60,73,25,25)
+                    self.leg_three_color.setGeometry(60,1030,25,25) ### ADD 740 to all ###
+                    self.leg_four_color.setGeometry(60,133,25,25)
+
+                    self.legend_linetwo.setGeometry(100,70,341,30)
+                    self.legend_linethree.setGeometry(100,100,341,30)
+                    self.legend_linefour.setGeometry(100,130,341,30)
+
+                    self.legend_two_price.setGeometry(450,70,101,30)
+                    self.legend_three_price.setGeometry(450,100,101,30)
+                    self.legend_four_price.setGeometry(450,100,101,30)
+
+                elif self.hedit_add_study.text() == 'EMA (20d)':
+                    self.legend_box.setGeometry(2240,120,581,101)
+
+                    self.leg_two_color.setGeometry(60,73,25,25)
+                    self.legend_linetwo.setGeometry(100,70,341,30)
+                    self.legend_two_price.setGeometry(450,70,101,30)
+                    self.legend_linetwo.setText('EMA (20d)')
+                else:
+                    pass
+            else:
+                if  self.hist_graph_edit.text() == '>>>':
+                    self.legend_box.setGeometry(1420,120,581,371)
+
+                    self.leg_two_color.setGeometry(0,0,0,0)
+                    self.leg_three_color.setGeometry(0,0,0,0)
+                    self.leg_four_color.setGeometry(0,0,0,0)
+
+                    self.legend_linetwo.setGeometry(0,0,0,0)
+                    self.legend_linethree.setGeometry(0,0,0,0)
+                    self.legend_linefour.setGeometry(0,0,0,0)
+
+                    self.legend_two_price.setGeometry(0,0,0,0)
+                    self.legend_three_price.setGeometry(0,0,0,0)
+                    self.legend_four_price.setGeometry(0,0,0,0)
+                else:
+                    self.legend_box.setGeometry(2240,120,581,371)
+
+                    self.leg_two_color.setGeometry(0,0,0,0)
+                    self.leg_three_color.setGeometry(0,0,0,0)
+                    self.leg_four_color.setGeometry(0,0,0,0)
+
+                    self.legend_linetwo.setGeometry(0,0,0,0)
+                    self.legend_linethree.setGeometry(0,0,0,0)
+                    self.legend_linefour.setGeometry(0,0,0,0)
+
+                    self.legend_two_price.setGeometry(0,0,0,0)
+                    self.legend_three_price.setGeometry(0,0,0,0)
+                    self.legend_four_price.setGeometry(0,0,0,0)
+        else:
+            pass
+
+        #if self.hedit_add_ck.isChecked():
+        #    self.legend_second_name.setText(str(sec_name+' '+'('+sec_symbol+')'))
+        #    self.legend_pchg.setText(str(sec_pchg))
+        #    if self.hedit_plot_type_2.text() == 'Close':
+        #        self.legend_lineone.setText('Closing Price')
+        #        self.legend_one_price.setText(str(sec_closing))
+        #    elif self.hedit_plot_type_2.text() == 'Open':
+        #        self.legend_lineone.setText('Opening Price')
+        #        self.legend_one_price.setText(str(sec_open))
+        #    elif self.hedit_plot_type_2.text() == 'High':
+        #        self.legend_lineone.setText('Highest Price')
+        #        self.legend_one_price.setText(str(sec_high))
+        #    elif self.hedit_plot_type_2.text() == 'Low':
+        #        self.legend_lineone.setText('Lowest Price')
+        #        self.legend_one_price.setText(str(sec_low))
+        #    elif self.hedit_plot_type_2.text() == 'High/Low Shaded':
+        #        self.legend_lineone.setText('High/Low Shaded')
+        #        self.legend_one_price.setText('')
+        #    else:
+        #        pass    
+            
+        #    if self.hedit_study_ck_2.isChecked():
 
     def hist_add_company(self):
         '''Called when a second company is searched for from the graph edit. Sets the plot and
@@ -414,6 +565,7 @@ class Main(QMainWindow,Ui_MainWindow):
         #Setting add_ck to checked calls hedit_second_company to plot
         self.hedit_add_ck.stateChanged.disconnect()
         self.hedit_add_ck.setChecked(True)
+        self.hedit_add_ck.stateChanged.connect(self.hedit_second_company)
         self.hedit_plot_type_ck_2.setChecked(True)
         self.hedit_plot_type_ck_2.setGeometry(110,395,31,40)
         self.hedit_plot_type_2.setGeometry(140,395,371,40)
@@ -425,7 +577,7 @@ class Main(QMainWindow,Ui_MainWindow):
         ehist_axis2.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
 
         #Brings the second y axis to the right of the first company
-        ehist_axis2.spines['right'].set_position(('outward', 50))
+        ehist_axis2.spines['right'].set_position(('outward', 80))
         ehist_axis2.set_frame_on(True)
         ehist_axis2.patch.set_visible(False)
         ehist_axis2.spines["right"].set_visible(True)
@@ -434,8 +586,10 @@ class Main(QMainWindow,Ui_MainWindow):
         ehist_axis2.tick_params(axis='y', colors='yellow',labelsize=20)
 
         #Change the number of ticks on the x and y axis
+        ehist_axis2.xaxis.set_major_locator(AutoDateLocator(minticks=15))
         ehist_axis2.yaxis.set_major_locator(LinearLocator(15))
-        ehist_axis2.xaxis.set_major_locator(LinearLocator(20))
+        date_form = mdates.DateFormatter('%m/%d/%y')
+        ehist_axis2.xaxis.set_major_formatter(date_form)
 
         #Create box with second company symbol and daily change
         self.compare2.setGeometry(780,70,150,46)
@@ -445,7 +599,7 @@ class Main(QMainWindow,Ui_MainWindow):
             self.compare2.setText(str(symbol)+'-'+str(round(data[symbol]['Change'][-1],2)))
 
         #Resize hist graph to fit the double y axis 
-        self.hist_stock_graph.setGeometry(-65,85,2300,1581)
+        self.hist_stock_graph.setGeometry(-23,93,2300,1581)
         self.hist_set_axis()
         self.ehist_canvas.draw()
 
@@ -502,19 +656,31 @@ class Main(QMainWindow,Ui_MainWindow):
         '''
         if self.hist_graph_edit.isChecked():
             self.hist_spacer.setGeometry(630,70,1611,46)
-            self.hist_stock_graph.setGeometry(-65,85,2310,1581)
+            self.hist_stock_graph.setGeometry(-23,93,2260,1581)
             self.hist_graph_edit.setGeometry(2150,70,81,41)
             self.tree_frame.setGeometry(2240,110,731,1551)
             self.graph_edit_header.setGeometry(2240,70,731,46)
             self.hist_graph_edit.setText('>>>')
 
+            self.legend_box.setGeometry(1420,120,581,371)
+
+            date_form = mdates.DateFormatter('%m/%y')
+            ehist_axis.xaxis.set_major_formatter(date_form)
         else:
             self.hist_spacer.setGeometry(630,70,2341,46)
             self.hist_graph_edit.setGeometry(2870,70,81,41)
-            self.hist_stock_graph.setGeometry(-65,85,3051,1581)
+            self.hist_stock_graph.setGeometry(-23,93,3010,1581)
             self.tree_frame.setGeometry(2240,110,0,0)
             self.graph_edit_header.setGeometry(2260,70,0,0)
             self.hist_graph_edit.setText('<<<')
+
+            self.legend_box.setGeometry(2240,120,581,371)
+
+
+            date_form = mdates.DateFormatter('%m/%d/%y')
+            ehist_axis.xaxis.set_major_formatter(date_form)
+
+        self.hist_legend()
 
     def hedit_first_company(self):
         '''Called when any of the first company search bars or check buttons are changed
@@ -523,13 +689,9 @@ class Main(QMainWindow,Ui_MainWindow):
         name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
 
         ehist_axis.clear()
+        ehist_axis.xaxis.set_major_locator(AutoDateLocator(minticks=15))
         ehist_axis.yaxis.set_major_locator(LinearLocator(15))
-        ehist_axis.yaxis.set_minor_locator(LinearLocator(20))
-
-        ehist_axis.xaxis.set_major_locator(LinearLocator(15))
-        ehist_axis.xaxis.set_minor_locator(LinearLocator(20))
-        ehist_axis.grid(True, which='minor', color='w', linestyle='--')
-        ehist_axis.grid(True, which='major', color='w', linestyle='-')  
+        ehist_axis.grid(True, which='major', color='w', linestyle='--')  
         #If the top two search bars are checked then it will plot whats in the plot type search bar
         #If either of the top two search bars arw unchecked then the first company plots are deleted
         if self.hedit_initial_ck.isChecked():
@@ -575,6 +737,7 @@ class Main(QMainWindow,Ui_MainWindow):
             self.hist_replot()
 
         #Sets the axis so graph lines are centered
+        self.hist_legend()
         self.hist_set_axis()
         self.ehist_canvas.draw()        
 
@@ -583,14 +746,12 @@ class Main(QMainWindow,Ui_MainWindow):
         name, symbol, industry = self.symbolFunction(self.hedit_add_company.text())
 
         ehist_axis2.clear()
-        ehist_axis2.yaxis.tick_right()
-        ehist_axis2.grid(True, which='minor', color='w', linestyle='--')
-        ehist_axis2.grid(True, which='major', color='w', linestyle='-')  
-        ehist_axis.yaxis.set_major_locator(LinearLocator(15))
-        ehist_axis.yaxis.set_minor_locator(LinearLocator(20))
 
-        ehist_axis.xaxis.set_major_locator(LinearLocator(15))
-        ehist_axis.xaxis.set_minor_locator(LinearLocator(20))
+        #Set the tick lines and grid
+        ehist_axis2.xaxis.set_major_locator(AutoDateLocator(minticks=15))
+        ehist_axis2.yaxis.set_major_locator(LinearLocator(15))
+        ehist_axis2.grid(True, which='major', color='w', linestyle='--')  
+
         if self.hedit_add_ck.isChecked():
             if self.hedit_plot_type_ck_2.isChecked():
                 if self.hedit_plot_type_2.text() == 'Close':
@@ -635,13 +796,9 @@ class Main(QMainWindow,Ui_MainWindow):
             self.hedit_study_ck_2.setGeometry(110,435,31,0)
             self.hedit_add_study_2.setGeometry(140,440,371,0)
 
-            ehist_axis2.spines['right'].set_position(('outward',0))
-            ehist_axis2.set_frame_on(True)
-            ehist_axis2.patch.set_visible(False)
-            ehist_axis2.spines["right"].set_visible(False)
-            ehist_axis2.spines['right'].set_color("w")
-            ehist_axis2.yaxis.set_ticks_position('right')
-            ehist_axis2.tick_params(axis='y', colors='black',labelsize=20)
+            self.hist_stock_graph.setGeometry(-23,93,3051,1581)
+            ehist_axis2.axes.get_xaxis().set_ticklabels([])
+            ehist_axis2.axes.get_yaxis().set_ticklabels([])
             
             self.hist_replot()
         self.hist_set_axis()
@@ -941,7 +1098,7 @@ if __name__ == '__main__':
     ehist_axis = ehist_fig.add_subplot(111,axisbg='#07000d') 
 
     ehist_axis.grid(True, which='minor', color='w', linestyle='--')
-    ehist_axis.grid(True, which='major', color='w', linestyle='-')  
+    ehist_axis.grid(True, which='major', color='w', linestyle='--')  
     ehist_axis.yaxis.label.set_color("green")
     ehist_axis.xaxis.label.set_color('w')
     ehist_axis.spines['bottom'].set_color("w")
