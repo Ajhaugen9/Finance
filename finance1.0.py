@@ -12,8 +12,6 @@ import matplotlib.dates as mdates
 import matplotlib.finance
 from matplotlib.ticker import LinearLocator, MaxNLocator
 from matplotlib.dates import AutoDateLocator
-
-
 import numpy as np
 import pandas as pd
 from pandas_datareader import data as web
@@ -314,6 +312,12 @@ class Main(QMainWindow,Ui_MainWindow):
         self.cap_label.setText(str(value))
 
         #Plot the closing price for the last year
+        ##Change the number of ticks on the x and y axis
+        esum_axis.xaxis.set_major_locator(AutoDateLocator(minticks=10))
+        esum_axis.yaxis.set_major_locator(LinearLocator(10))
+        date_form = mdates.DateFormatter('%m/%d/%y')
+        esum_axis.xaxis.set_major_formatter(date_form)
+
         esum_axis.plot(data[symbol]['Close'],color='green',lw=4, alpha=0.6)
         esum_axis.yaxis.tick_right()
         esum_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
@@ -449,6 +453,11 @@ class Main(QMainWindow,Ui_MainWindow):
 
         '''The first company is always show so the first to lines in the legend will
            always be there, this is to change the label and price'''
+        if self.hist_graph_edit.text() == '>>>':
+            self.legend_box.setGeometry(1420,120,581,171)
+        elif self.hist_graph_edit.text() == '<<<':
+            self.legend_box.setGeometry(2240,120,581,171)
+
         if self.hedit_initial_ck.isChecked():
             self.legend_first_name.setText(str(name+' '+'('+symbol+')'))
             self.legend_pchg.setText(str(pchg))
@@ -471,14 +480,12 @@ class Main(QMainWindow,Ui_MainWindow):
                 pass
 
             '''If boll bands are selected then that takes 3 extra lines in the legend
-               EMA is 1 extra line. If study check isnt checked then the legend box is 
-               adjusted to fit just to top 2 lines'''
+                EMA is 1 extra line. If study check isnt checked then the legend box is 
+                adjusted to fit just to top 2 lines'''
             if self.hedit_study_ck.isChecked():
                 if self.hedit_add_study.text() == 'Bollinger Bands':
-                    self.legend_box.setGeometry(1420,120,581,171)
-
                     self.leg_two_color.setGeometry(60,73,25,25)
-                    self.leg_three_color.setGeometry(60,1030,25,25) ### ADD 740 to all ###
+                    self.leg_three_color.setGeometry(60,103,25,25) 
                     self.leg_four_color.setGeometry(60,133,25,25)
 
                     self.legend_linetwo.setGeometry(100,70,341,30)
@@ -487,12 +494,12 @@ class Main(QMainWindow,Ui_MainWindow):
 
                     self.legend_two_price.setGeometry(450,70,101,30)
                     self.legend_three_price.setGeometry(450,100,101,30)
-                    self.legend_four_price.setGeometry(450,100,101,30)
+                    self.legend_four_price.setGeometry(450,130,101,30)
 
                 elif self.hedit_add_study.text() == 'EMA (20d)':
-                    self.legend_box.setGeometry(2240,120,581,101)
-
+                    #self.legend_box.setGeometry(1420,120,581,101)
                     self.leg_two_color.setGeometry(60,73,25,25)
+                    self.leg_two_color.setStyleSheet('color:blue')
                     self.legend_linetwo.setGeometry(100,70,341,30)
                     self.legend_two_price.setGeometry(450,70,101,30)
                     self.legend_linetwo.setText('EMA (20d)')
@@ -500,8 +507,6 @@ class Main(QMainWindow,Ui_MainWindow):
                     pass
             else:
                 if  self.hist_graph_edit.text() == '>>>':
-                    self.legend_box.setGeometry(1420,120,581,371)
-
                     self.leg_two_color.setGeometry(0,0,0,0)
                     self.leg_three_color.setGeometry(0,0,0,0)
                     self.leg_four_color.setGeometry(0,0,0,0)
@@ -514,8 +519,6 @@ class Main(QMainWindow,Ui_MainWindow):
                     self.legend_three_price.setGeometry(0,0,0,0)
                     self.legend_four_price.setGeometry(0,0,0,0)
                 else:
-                    self.legend_box.setGeometry(2240,120,581,371)
-
                     self.leg_two_color.setGeometry(0,0,0,0)
                     self.leg_three_color.setGeometry(0,0,0,0)
                     self.leg_four_color.setGeometry(0,0,0,0)
@@ -529,29 +532,6 @@ class Main(QMainWindow,Ui_MainWindow):
                     self.legend_four_price.setGeometry(0,0,0,0)
         else:
             pass
-
-        #if self.hedit_add_ck.isChecked():
-        #    self.legend_second_name.setText(str(sec_name+' '+'('+sec_symbol+')'))
-        #    self.legend_pchg.setText(str(sec_pchg))
-        #    if self.hedit_plot_type_2.text() == 'Close':
-        #        self.legend_lineone.setText('Closing Price')
-        #        self.legend_one_price.setText(str(sec_closing))
-        #    elif self.hedit_plot_type_2.text() == 'Open':
-        #        self.legend_lineone.setText('Opening Price')
-        #        self.legend_one_price.setText(str(sec_open))
-        #    elif self.hedit_plot_type_2.text() == 'High':
-        #        self.legend_lineone.setText('Highest Price')
-        #        self.legend_one_price.setText(str(sec_high))
-        #    elif self.hedit_plot_type_2.text() == 'Low':
-        #        self.legend_lineone.setText('Lowest Price')
-        #        self.legend_one_price.setText(str(sec_low))
-        #    elif self.hedit_plot_type_2.text() == 'High/Low Shaded':
-        #        self.legend_lineone.setText('High/Low Shaded')
-        #        self.legend_one_price.setText('')
-        #    else:
-        #        pass    
-            
-        #    if self.hedit_study_ck_2.isChecked():
 
     def hist_add_company(self):
         '''Called when a second company is searched for from the graph edit. Sets the plot and
@@ -662,8 +642,6 @@ class Main(QMainWindow,Ui_MainWindow):
             self.graph_edit_header.setGeometry(2240,70,731,46)
             self.hist_graph_edit.setText('>>>')
 
-            self.legend_box.setGeometry(1420,120,581,371)
-
             date_form = mdates.DateFormatter('%m/%y')
             ehist_axis.xaxis.set_major_formatter(date_form)
         else:
@@ -673,9 +651,6 @@ class Main(QMainWindow,Ui_MainWindow):
             self.tree_frame.setGeometry(2240,110,0,0)
             self.graph_edit_header.setGeometry(2260,70,0,0)
             self.hist_graph_edit.setText('<<<')
-
-            self.legend_box.setGeometry(2240,120,581,371)
-
 
             date_form = mdates.DateFormatter('%m/%d/%y')
             ehist_axis.xaxis.set_major_formatter(date_form)
@@ -1066,10 +1041,11 @@ class Main(QMainWindow,Ui_MainWindow):
 
 if __name__ == '__main__':
     import sys
+
+    #Index graph on start up
     sindex_fig = Figure(facecolor='#07000d') 
     sindex_fig.set_tight_layout(tight=True)
     sindex_axis = sindex_fig.add_subplot(111,axisbg='#07000d') 
-
     sindex_axis.grid(True, color='w')
     sindex_axis.yaxis.label.set_color("w")
     sindex_axis.xaxis.label.set_color('w')
@@ -1080,11 +1056,13 @@ if __name__ == '__main__':
     sindex_axis.tick_params(axis='y', colors='w',labelsize=20)
     sindex_axis.tick_params(axis='x', colors='w',labelsize=20)
 
+    #Closing price graph on equity summary page
     esum_fig = Figure(facecolor='#07000d') 
     esum_fig.set_tight_layout(tight=True)
     esum_axis = esum_fig.add_subplot(111,axisbg='#07000d') 
-    esum_axis.grid(True, color='w')
-    esum_axis.yaxis.label.set_color("w")
+    esum_axis.grid(True, which='minor', color='w', linestyle='--')
+    esum_axis.grid(True, which='major', color='w', linestyle='--') 
+    esum_axis.yaxis.label.set_color("green")
     esum_axis.xaxis.label.set_color('w')
     esum_axis.spines['bottom'].set_color("w")
     esum_axis.spines['top'].set_color("w")
@@ -1093,10 +1071,10 @@ if __name__ == '__main__':
     esum_axis.tick_params(axis='y', colors='w',labelsize=20)
     esum_axis.tick_params(axis='x', colors='w',labelsize=20)
 
+    #Equity historical graph
     ehist_fig = Figure(facecolor='#07000d') 
     ehist_fig.set_tight_layout(tight=True)
     ehist_axis = ehist_fig.add_subplot(111,axisbg='#07000d') 
-
     ehist_axis.grid(True, which='minor', color='w', linestyle='--')
     ehist_axis.grid(True, which='major', color='w', linestyle='--')  
     ehist_axis.yaxis.label.set_color("green")
