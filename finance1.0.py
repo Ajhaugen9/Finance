@@ -26,6 +26,8 @@ all_stocks.rename(columns={'MA200': 'MA_two'}, inplace=True)
 data = all_stocks.round(2)
 info = pd.DataFrame.from_csv('stock_info.csv')
 con = pd.DataFrame.from_csv('condis.csv',header=[0,1,2]).round(2)
+currency = pd.DataFrame.from_csv('Currency.csv',header=0)
+bonds = pd.DataFrame.from_csv('Bonds.csv',header=0)
 
 other_search = ['US Bonds','US Economy','Currency','Portfolio']
 
@@ -69,7 +71,17 @@ end = datetime.date.today()
 sp_index = web.DataReader('^GSPC','yahoo',start, end)
 sp_index = sp_index.round(2)
 nasdaq_index = web.DataReader('^IXIC','yahoo',start, end)
-us_gdp = web.DataReader('GDP','fred',start, end) #quarterly
+us_gdp = web.DataReader('GDP','fred',start,end) 
+min_wage = web.DataReader('STTMINWGFG','fred',start,end) 
+fed_funds = web.DataReader('DFF','fred',start,end) 
+#us_euro_exc = web.DataReader('DEXUSEU','fred',start,end)
+#china_us_exc = web.DataReader('DEXCHUS','fred',start,end)
+#jap_us_exc = web.DataReader('DEXJPUS','fred',start,end)
+#cpi_urban = web.DataReader('CPIAUCSL','fred',start,end)
+#unemploy_rate = web.DataReader('UNRATE','fred',start,end)
+#m1 = web.DataReader('M1','fred',start,end)
+#m2 = web.DataReader('M2','fred',start,end)
+#tbill_3 = web.DataReader('DTB3','fred',start,end)
 
 plottypes = ['Open','High','Low','Close','High/Low Shaded','OHLC Candlestick']
 
@@ -101,6 +113,8 @@ class Main(QMainWindow,Ui_MainWindow):
         self.econ_graph_pb.clicked.connect(self.econ_window)
         self.currency_pb.clicked.connect(self.currency_window)
         self.bonds_pb.clicked.connect(self.bond_window)
+
+        self.start_econ_var.currentIndexChanged.connect(self.start_up_econ)
 
         #Equity page
         self.equity_search_bar.setCompleter(comkey)
@@ -170,52 +184,18 @@ class Main(QMainWindow,Ui_MainWindow):
         #self.dow_index_ck.stateChanged.connect(self.index_plot_dow)
         #self.nasdaq_index_ck.stateChanged.connect(self.index_plot_nasdaq)
 
+
+        #Portfolio
+        self.buy_search.setCompleter(comkey)
+        self.buy_search.returnPressed.connect(self.add_to_portfolio)
+        self.buy_shares.returnPressed.connect(self.buy_shares_total)
+        self.buy_pb.clicked.connect(self.buy_security)
         self.startup_page()
 
-    def searching(self):
-        '''Called when something is searched on the start page. Takes what was searched and opens calls
-           a function to open the appropriate window
-        '''
-        
-        #If what was searched is not in other_search then its a company
-        if str(self.start_search_bar.text()) not in other_search:
-            self.equity_summary()
-        elif str(self.start_search_bar.text()) == 'US Bonds':
-            self.bonds_window()
-        elif str(self.start_search_bar.text()) == 'US Economy':
-            self.econ_window()        
-        elif str(self.start_search_bar.text()) == 'Currency':
-            self.currency_window()
-        elif str(self.start_search_bar.text()) == 'Portfolio':
-            self.portfolio_window()
-        
     def startup_page(self):
         '''Start up page is called in _init_ and sets all the info for that page'''
        
         self.stackedWidget.setCurrentIndex(0)
-
-        #Top left stock index graph 
-        #Since its a twinx the axis tick had to be set for the second graph
-        sindex_axis.plot(sp_index['Close'],color='green',lw=4)
-        sindex_axis2 = sindex_axis.twinx()
-        sindex_axis2.yaxis.label.set_color("w")
-        sindex_axis2.xaxis.label.set_color('w')
-        sindex_axis2.spines['bottom'].set_color("w")
-        sindex_axis2.spines['top'].set_color("w")
-        sindex_axis2.spines['left'].set_color("w")
-        sindex_axis2.spines['right'].set_color("w")
-        sindex_axis2.tick_params(axis='y', colors='w',labelsize=20)
-        sindex_axis2.tick_params(axis='x', colors='w',labelsize=20)
-        sindex_axis2.plot(nasdaq_index['Close'],color='orange',lw=4, alpha=0.6)
-        sindex_axis.set_ylim([1750,2500])
-        sindex_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
-        sindex_axis.xaxis.set_minor_formatter(mdates.DateFormatter('%m/&y'))
-
-        #Bottom left econ graph
-        secon_axis.plot(us_gdp['GDP'],color='green',lw=4,alpha=0.6)
-        secon_axis.legend()
-        secon_axis.yaxis.tick_right()
-        secon_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
 
         #Sets the Gainers Table
         gainers_pd = gainer_pd[:10]
@@ -246,6 +226,135 @@ class Main(QMainWindow,Ui_MainWindow):
                 newitem = QTableWidgetItem(str(item))
                 newitem.setTextAlignment(Qt.AlignCenter)
                 self.losers_table.setItem(c,r, newitem)
+
+        #Currency Table
+        currHeaders = ['Price','Day','Week','Month','Year']
+        self.currency_table.setHorizontalHeaderLabels(currHeaders)  
+        self.currency_table.setVerticalHeaderLabels(currency.columns)          
+        self.currency_table.setColumnCount(5)
+        self.currency_table.setRowCount(len(currency.columns))
+
+        #Bonds Table
+        bondHeaders = ['Price','Day','Week','Month','Year']
+        self.bonds_table.setHorizontalHeaderLabels(currHeaders)  
+        self.bonds_table.setVerticalHeaderLabels(bonds.columns)          
+        self.bonds_table.setColumnCount(5)
+        self.bonds_table.setRowCount(len(bonds.columns))
+
+        self.start_up_econ()
+        self.start_up_index()
+
+    def start_up_index(self):
+        #Gets the start date 
+        from_ = datetime.date(year-1,month,day)
+        to_ = datetime.datetime(year,month,day)
+        from_index = from_.strftime('%Y-%m-%d')
+        to_index = to_.strftime('%Y-%m-%d')
+
+        #Since its a twinx the axis tick had to be set for the second graph
+        sindex_axis.plot(sp_index['Close'],color='green',lw=4)
+        sindex_axis2.plot(nasdaq_index['Close'],color='orange',lw=4, alpha=0.6)
+        sindex_axis.yaxis.tick_right()
+
+        #Bring both y axis to the right
+        sindex_axis2.spines['right'].set_position(('outward', 80))
+        sindex_axis2.set_frame_on(True)
+        sindex_axis2.patch.set_visible(False)
+        sindex_axis2.spines["right"].set_visible(True)
+        sindex_axis2.spines['right'].set_color("w")
+        sindex_axis2.yaxis.set_ticks_position('right')
+        sindex_axis2.tick_params(axis='y', colors='orange',labelsize=20)
+        sindex_axis.set_xlim([datetime.datetime(year-1,month,day),datetime.datetime(year,month,day-1)])
+
+        #Change the number of ticks on the x and y axis
+        sindex_axis.xaxis.set_major_locator(AutoDateLocator(minticks=10))
+        sindex_axis.yaxis.set_major_locator(LinearLocator(10))
+        sindex_axis2.xaxis.set_major_locator(AutoDateLocator(minticks=10))
+        sindex_axis2.yaxis.set_major_locator(LinearLocator(10))
+        date_form = mdates.DateFormatter('%m/%y')
+        sindex_axis.xaxis.set_major_formatter(date_form)
+
+        #Center the plot in the graph
+        close_min = sp_index['Close'].loc[from_index:to_index].min()
+        close_max = sp_index['Close'].loc[from_index:to_index].max()
+        close_diff = float(close_max - close_min)
+        ax1_min = float(close_min - (close_diff*0.10))
+        ax1_max = float(close_max + (close_diff*0.10))
+        sindex_axis.set_ylim([ax1_min,ax1_max])
+
+        close_min2 = nasdaq_index['Close'].loc[from_index:to_index].min()
+        close_max2 = nasdaq_index['Close'].loc[from_index:to_index].max()
+        close_diff2 = float(close_max - close_min)
+        ax1_min2 = float(close_min2 - (close_diff2*0.10))
+        ax1_max2 = float(close_max2 + (close_diff2*0.10))
+        sindex_axis2.set_ylim([ax1_min2,ax1_max2])
+
+    def start_up_econ(self):
+        '''Sets up the econ graph on the start page and plots'''
+
+        #Gets the variable to plot and the last date
+        variable = self.start_econ_var.currentText()
+        date_gdp = us_gdp.index[-1].to_pydatetime()
+        year_gdp = date_gdp.year
+        month_gdp = date_gdp.month
+        day_gdp = date_gdp.day
+        print 'should work'
+        #Gets the start date 
+        from_ = datetime.date(year_gdp-10,month_gdp,day_gdp)
+        to_ = datetime.datetime(year_gdp,month_gdp,day_gdp)
+        from_index = from_.strftime('%Y-%m-%d')
+        to_index = to_.strftime('%Y-%m-%d')
+
+        if self.start_econ_var.currentText() == 'GDP':
+            secon_axis.plot(us_gdp['GDP'],color='green',lw=4,alpha=0.6)
+            var = us_gdp['GDP']
+        elif self.start_econ_var.currentText() == 'Fed Rate':
+            secon_axis.plot(fed_funds['DFF'],color='green',lw=4,alpha=0.6)
+            var = fed_funds['DFF']
+        elif self.start_econ_var.currentText() == 'Unemployment':
+            secon_axis.plot(unemploy_rate['UNRATE'],color='green',lw=4,alpha=0.6)
+            var = unemploy_rate['UNRATE']
+        elif self.start_econ_var.currentText() == '3-Month T-Bill':
+            secon_axis.plot(tbill_3['DTB3'],color='green',lw=4,alpha=0.6)
+            var = tbill_3['DTB3']
+        elif self.start_econ_var.currentText() == 'CPI':
+            secon_axis.plot(cpi_urban['CPIAUCSL'],color='green',lw=4,alpha=0.6)
+            var = cpi_urban['CPIAUCSL']
+ 
+        secon_axis.yaxis.tick_right()
+        secon_axis.legend()
+        secon_axis.set_xlim([datetime.datetime(year_gdp-10,month_gdp,day_gdp),datetime.datetime(year_gdp,month_gdp,day_gdp)])
+
+        #Change the number of ticks on the x and y axis
+        secon_axis.xaxis.set_major_locator(AutoDateLocator(minticks=10))
+        secon_axis.yaxis.set_major_locator(LinearLocator(10))
+        date_form = mdates.DateFormatter('%Y')
+        secon_axis.xaxis.set_major_formatter(date_form)
+
+        #Center the plot in the graph
+        ecom_min = var.loc[from_index:to_index].min()
+        econ_max = var.loc[from_index:to_index].max()
+        econ_diff = float(econ_max - ecom_min)
+        ax1_min = float(ecom_min - (econ_diff*0.10))
+        ax1_max = float(econ_max + (econ_diff*0.10))
+        secon_axis.set_ylim([ax1_min,ax1_max])
+
+    def searching(self):
+        '''Called when something is searched on the start page. Takes what was searched and opens calls
+           a function to open the appropriate window
+        '''
+        
+        #If what was searched is not in other_search then its a company
+        if str(self.start_search_bar.text()) not in other_search:
+            self.equity_summary()
+        elif str(self.start_search_bar.text()) == 'US Bonds':
+            self.bonds_window()
+        elif str(self.start_search_bar.text()) == 'US Economy':
+            self.econ_window()        
+        elif str(self.start_search_bar.text()) == 'Currency':
+            self.currency_window()
+        elif str(self.start_search_bar.text()) == 'Portfolio':
+            self.portfolio_window()
 
     def equity_summary(self):
         '''Called when the start up page search is for a company and sets the Summary page and Chart page
@@ -315,7 +424,7 @@ class Main(QMainWindow,Ui_MainWindow):
         ##Change the number of ticks on the x and y axis
         esum_axis.xaxis.set_major_locator(AutoDateLocator(minticks=10))
         esum_axis.yaxis.set_major_locator(LinearLocator(10))
-        date_form = mdates.DateFormatter('%m/%d/%y')
+        date_form = mdates.DateFormatter('%m/%y')
         esum_axis.xaxis.set_major_formatter(date_form)
 
         esum_axis.plot(data[symbol]['Close'],color='green',lw=4, alpha=0.6)
@@ -333,16 +442,16 @@ class Main(QMainWindow,Ui_MainWindow):
         self.ehist_canvas.draw()
 
         #Fill in company price table for last 10 days
-        columns = ['Close','Change','Mrk Cap']
+        columns = ['Close','High','Change']
         self.price_hist_table.setHorizontalHeaderLabels(columns)   
-        dates = data.index[-11:][::-1].strftime('%m/%d/%y')
+        dates = data.index[-12:][::-1].strftime('%m/%d/%y')
         date_list = []
         for d in dates:
             date_list.append(d)
             self.price_hist_table.setVerticalHeaderLabels(date_list)          
         self.price_hist_table.setColumnCount(len(columns))
-        self.price_hist_table.setRowCount(len(range(1,10)))
-        for r, key in enumerate(data[symbol][['Close','% Change','Mrk Cap']][-11:]):
+        self.price_hist_table.setRowCount(len(range(1,11)))
+        for r, key in enumerate(data[symbol][['Close','High','% Change']][-12:]):
             for c, item in enumerate(data[symbol][key].iloc[::-1]):
                 newitem = QTableWidgetItem(str(item))
                 newitem.setTextAlignment(Qt.AlignCenter)
@@ -365,8 +474,6 @@ class Main(QMainWindow,Ui_MainWindow):
 
     def historical_chart(self):
         '''Called in the equity_summary function. Plots the Histrical Chart'''
-
-        self.equity_tab.setCurrentIndex(1)
         
         name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
 
@@ -499,7 +606,7 @@ class Main(QMainWindow,Ui_MainWindow):
                 elif self.hedit_add_study.text() == 'EMA (20d)':
                     #self.legend_box.setGeometry(1420,120,581,101)
                     self.leg_two_color.setGeometry(60,73,25,25)
-                    self.leg_two_color.setStyleSheet('color:blue')
+                    #self.leg_two_color.setStyleSheet('color:blue')
                     self.legend_linetwo.setGeometry(100,70,341,30)
                     self.legend_two_price.setGeometry(450,70,101,30)
                     self.legend_linetwo.setText('EMA (20d)')
@@ -636,21 +743,27 @@ class Main(QMainWindow,Ui_MainWindow):
         '''
         if self.hist_graph_edit.isChecked():
             self.hist_spacer.setGeometry(630,70,1611,46)
-            self.hist_stock_graph.setGeometry(-23,93,2260,1581)
             self.hist_graph_edit.setGeometry(2150,70,81,41)
             self.tree_frame.setGeometry(2240,110,731,1551)
             self.graph_edit_header.setGeometry(2240,70,731,46)
             self.hist_graph_edit.setText('>>>')
+            if self.hedit_add_study.text() == 'Volume':
+                self.hist_stock_graph.setGeometry(-23,93,2260,1581)
+            else:
+                self.hist_stock_graph.setGeometry(-23,93,2260,2100)
 
             date_form = mdates.DateFormatter('%m/%y')
             ehist_axis.xaxis.set_major_formatter(date_form)
         else:
             self.hist_spacer.setGeometry(630,70,2341,46)
             self.hist_graph_edit.setGeometry(2870,70,81,41)
-            self.hist_stock_graph.setGeometry(-23,93,3010,1581)
             self.tree_frame.setGeometry(2240,110,0,0)
             self.graph_edit_header.setGeometry(2260,70,0,0)
             self.hist_graph_edit.setText('<<<')
+            if self.hedit_add_study.text() == 'Volume':
+                self.hist_stock_graph.setGeometry(-23,93,3010,1581)
+            else:
+                self.hist_stock_graph.setGeometry(-23,93,3010,2100)
 
             date_form = mdates.DateFormatter('%m/%d/%y')
             ehist_axis.xaxis.set_major_formatter(date_form)
@@ -662,6 +775,7 @@ class Main(QMainWindow,Ui_MainWindow):
            in the graph edit side window. Plots what ever is in each of the search bars
         '''
         name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
+        self.hist_stock_graph.setGeometry(-23,93,2260,2100)
 
         ehist_axis.clear()
         ehist_axis.xaxis.set_major_locator(AutoDateLocator(minticks=15))
@@ -698,14 +812,12 @@ class Main(QMainWindow,Ui_MainWindow):
                 elif self.hedit_add_study.text() == 'EMA (20d)':
                     ema = pd.ewma(data[symbol]['Close'],com=9.5)
                     ehist_axis.plot(ema,color='blue',lw=3, alpha=0.5)
-                #elif self.hedit_add_study.text() == 'Volume':
-                #    self.hist_stock_bgraph()
-                #    ehist_baxis.plot(data[symbol]['Volume'],color='green',lw=5,alpha=0.6)
-                #else:
-                #    self.hist_stock_graph.setGeometry(-65,135,3051,1531)
-                #    self.hist_bottom_graph.setGeometry(-65,1259,3051,0)
+                elif self.hedit_add_study.text() == 'Volume':
+                    self.hist_stock_bgraph()
             else:
                 del ehist_axis.lines[0:]
+                self.hist_stock_graph.setGeometry(-23,93,2260,2100)
+                self.hist_bottom_graph.setGeometry(-65,1259,2260,0)
                 self.hist_replot()
         else:
             del ehist_axis.lines[0:]
@@ -983,21 +1095,72 @@ class Main(QMainWindow,Ui_MainWindow):
         self.sp_open.setText(str(sp_open))
         self.sp_volume.setText(str(sp_vol))
 
-    #def hist_stock_bgraph(self):
-    #    if self.equity_search_bar.text() in symb or com_names:
-    #        if len(self.equity_search_bar.text()) <= 5:
-    #            symbol = str(self.equity_search_bar.text())
-    #            symbol_index = symb.index(symbol)       
-    #            name = com_names[symbol_index]
-    #        elif len(self.equity_search_bar.text()) > 5:
-    #            name = str(self.equity_search_bar.text())
-    #            company_index = com_names.index(name)
-    #            symbol = symb[company_index]
-    #    self.hist_stock_graph.setGeometry(-65,135,3051,1221)
-    #    self.hist_bottom_graph.setGeometry(-65,1259,2301,410)
-    #    esum_axis.yaxis.tick_right()
-    #    self.hist_set_axis()
-    #    self.ehist_bcanvas.draw()        
+    def add_to_portfolio(self):
+        name, symbol, industry = self.symbolFunction(self.buy_search.text())
+        buy_price = data[symbol]['Close'][-1]
+
+        self.buy_symbol.setText(symbol)
+        self.buy_price.setText('$'+str(buy_price))
+
+    def buy_shares_total(self):
+        name, symbol, industry = self.symbolFunction(self.buy_search.text())
+        buy_price = data[symbol]['Close'][-1]
+
+        buy_shares = self.buy_shares.text()
+        total_buy = float(buy_price*int(buy_shares))
+        self.buy_total.setText('$'+str(total_buy))
+
+    def buy_security(self):
+        symbol = str(self.buy_symbol.text())
+        buy_price = self.buy_price.text()
+        last_price = data[symbol]['Close'][-1]
+        buy_shares = self.buy_shares.text()
+        buy_total = self.buy_total.text()
+        self.port_symbol1.setText(str(symbol))
+        self.port_price1.setText(str(buy_price))
+        self.port_last_price1.setText(str(last_price))
+
+        port_shares = []
+        port_shares.append(buy_shares)
+        port_symbols = []
+        port_symbols.append(symbol)
+        port_buy_price = []
+        port_buy_price.append(buy_price)
+
+    def hist_stock_bgraph(self):
+        name, symbol, industry = self.symbolFunction(self.equity_search_bar.text())
+        self.hist_stock_graph.setGeometry(-23,93,2260,1581)
+
+        ehist_baxis.plot(data[symbol]['Volume'],color='blue',lw=5,alpha=0.6)
+        gs1.update(left=0.00, right=0.97, top=0.99, bottom=0.03,wspace=0.1,hspace=0)
+
+        #Gets the dates from the QtdateEdits
+        from_year = self.hist_date_from.date().year()
+        from_month = self.hist_date_from.date().month()
+        from_day = self.hist_date_from.date().day()
+        to_year = self.hist_date_to.date().year()
+        to_month = self.hist_date_to.date().month()
+        to_day = self.hist_date_to.date().day()
+
+        #Format the QtdateEdit to us in index
+        from_ = datetime.date(from_year,from_month,from_day)
+        to_ = datetime.datetime(to_year,to_month,to_day)
+        from_index = from_.strftime('%Y-%m-%d')
+        to_index = to_.strftime('%Y-%m-%d')
+
+        #Sets the y-axis max and min based on high and low
+        vol_min = data[symbol]['Volume'].loc[from_index:to_index].min()
+        vol_max = data[symbol]['Volume'].loc[from_index:to_index].max()
+        vol_diff = float(vol_max - vol_min)
+        ax1_min = float(vol_min - (vol_diff*0.10))
+        ax1_max = float(vol_max + (vol_diff*0.10))
+        ehist_baxis.set_ylim([ax1_min,ax1_max])
+
+        #Sets the x axis on the greaph
+        ehist_baxis.yaxis.tick_right()
+        ehist_baxis.set_xlim([datetime.datetime(from_year,from_month,from_day,9,0,0),datetime.datetime(to_year,to_month,to_day-1,17,0,0)]) 
+        date_form = mdates.DateFormatter('%m/%d/%y')
+        ehist_baxis.xaxis.set_major_formatter(date_form)
 
     def historical_table(self):
         self.equity_tab.setCurrentIndex(2)
@@ -1034,10 +1197,10 @@ class Main(QMainWindow,Ui_MainWindow):
         self.mplvl_secon_graph.addWidget(self.secon_canvas)
         self.secon_canvas.draw()
 
-        #def addmpl5(self, ehist_bfig):
-        #    self.ehist_bcanvas = FigureCanvas(ehist_bfig)
-        #    self.mplvl_hist_bgraph.addWidget(self.ehist_bcanvas)
-        #    self.ehist_bcanvas.draw()
+    #def addmpl5(self, ehist_bfig):
+    #    self.ehist_bcanvas = FigureCanvas(ehist_bfig)
+    #    self.mplvl_hist_bgraph.addWidget(self.ehist_bcanvas)
+    #    self.ehist_bcanvas.draw()
 
 if __name__ == '__main__':
     import sys
@@ -1046,15 +1209,17 @@ if __name__ == '__main__':
     sindex_fig = Figure(facecolor='#07000d') 
     sindex_fig.set_tight_layout(tight=True)
     sindex_axis = sindex_fig.add_subplot(111,axisbg='#07000d') 
-    sindex_axis.grid(True, color='w')
-    sindex_axis.yaxis.label.set_color("w")
+    sindex_axis.grid(True, which='minor', color='w', linestyle='--')
+    sindex_axis.grid(True, which='major', color='w', linestyle='--')  
+    sindex_axis.yaxis.label.set_color("green")
     sindex_axis.xaxis.label.set_color('w')
     sindex_axis.spines['bottom'].set_color("w")
     sindex_axis.spines['top'].set_color("w")
     sindex_axis.spines['left'].set_color("w")
     sindex_axis.spines['right'].set_color("w")
-    sindex_axis.tick_params(axis='y', colors='w',labelsize=20)
+    sindex_axis.tick_params(axis='y', colors='green',labelsize=20)
     sindex_axis.tick_params(axis='x', colors='w',labelsize=20)
+    sindex_axis2 = sindex_axis.twinx()
 
     #Closing price graph on equity summary page
     esum_fig = Figure(facecolor='#07000d') 
@@ -1072,10 +1237,10 @@ if __name__ == '__main__':
     esum_axis.tick_params(axis='x', colors='w',labelsize=20)
 
     #Equity historical graph
+    gs1 = gridspec.GridSpec(4, 1)
     ehist_fig = Figure(facecolor='#07000d') 
     ehist_fig.set_tight_layout(tight=True)
-    ehist_axis = ehist_fig.add_subplot(111,axisbg='#07000d') 
-    ehist_axis.grid(True, which='minor', color='w', linestyle='--')
+    ehist_axis = ehist_fig.add_subplot(gs1[:3, :],axisbg='#07000d') 
     ehist_axis.grid(True, which='major', color='w', linestyle='--')  
     ehist_axis.yaxis.label.set_color("green")
     ehist_axis.xaxis.label.set_color('w')
@@ -1085,26 +1250,37 @@ if __name__ == '__main__':
     ehist_axis.spines['right'].set_color("w")
     ehist_axis.tick_params(axis='y', colors='green',labelsize=20)
     ehist_axis.tick_params(axis='x', colors='w',labelsize=20)
-
     ehist_axis2 = ehist_axis.twinx()
 
+    ehist_baxis = ehist_fig.add_subplot(gs1[-1, :],axisbg='#07000d',sharex=ehist_axis) 
+    ehist_baxis.grid(True, which='major', color='w', linestyle='--')
+    ehist_baxis.yaxis.label.set_color("w")
+    ehist_baxis.xaxis.label.set_color('w')
+    ehist_baxis.spines['bottom'].set_color("w")
+    ehist_baxis.spines['top'].set_color("w")
+    ehist_baxis.spines['left'].set_color("w")
+    ehist_baxis.spines['right'].set_color("w")
+    ehist_baxis.tick_params(axis='y', colors='w',labelsize=20)
+    ehist_baxis.tick_params(axis='x', colors='w',labelsize=20)
     #ehist_bfig = Figure(facecolor='#07000d') 
     #ehist_bfig.set_tight_layout(tight=True)
     #ehist_baxis = ehist_bfig.add_subplot(111,axisbg='#07000d') 
-    #ehist_baxis.grid(True, color='w')
-    #ehist_baxis.yaxis.label.set_color("green")
+    #ehist_baxis.grid(True, which='minor', color='w', linestyle='--')
+    #ehist_baxis.grid(True, which='major', color='w', linestyle='--')  
+    #ehist_baxis.yaxis.label.set_color("w")
     #ehist_baxis.xaxis.label.set_color('w')
     #ehist_baxis.spines['bottom'].set_color("w")
     #ehist_baxis.spines['top'].set_color("w")
     #ehist_baxis.spines['left'].set_color("w")
     #ehist_baxis.spines['right'].set_color("w")
-    #ehist_baxis.tick_params(axis='y', colors='green',labelsize=20)
+    #ehist_baxis.tick_params(axis='y', colors='w',labelsize=20)
     #ehist_baxis.tick_params(axis='x', colors='w',labelsize=20)
 
     secon_fig = Figure(facecolor='#07000d') 
     secon_fig.set_tight_layout(tight=True)
     secon_axis = secon_fig.add_subplot(111,axisbg='#07000d') 
-    secon_axis.grid(True, color='w')
+    secon_axis.grid(True, which='minor', color='w', linestyle='--')
+    secon_axis.grid(True, which='major', color='w', linestyle='--') 
     secon_axis.yaxis.label.set_color("w")
     secon_axis.xaxis.label.set_color('w')
     secon_axis.spines['bottom'].set_color("w")
