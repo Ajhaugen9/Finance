@@ -10,17 +10,14 @@ from matplotlib.backends.backend_qt4agg import (FigureCanvasQTAgg as FigureCanva
 import matplotlib.gridspec as gridspec
 from matplotlib.widgets import *
 import matplotlib.dates as mdates
-from matplotlib.finance import candlestick_ohlc, candlestick2_ohlc
+#from matplotlib.finance import candlestick_ohlc, candlestick2_ohlc
 from matplotlib.ticker import LinearLocator, MaxNLocator
 from matplotlib.dates import AutoDateLocator, HourLocator, MonthLocator, WeekdayLocator
 import numpy as np
 from matplotlib.dates import date2num
-from matplotlib.finance import candlestick_ohlc
-
-
+import math
 import pandas as pd
 from pandas.tseries.holiday import USFederalHolidayCalendar
-
 from pandas_datareader import data as web
 import datetime
 from matplotlib.widgets import MultiCursor
@@ -30,102 +27,77 @@ import requests
 from yahoo_finance import Share
 import string
 from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
-
+import os
+import StringIO
+import time
+from datetime import timedelta
 ####To do list#####
 # 1. moving avg are being called but not plotted. mot being removed on edit page
 # 2. volume need to be a bar graph or histogram
 # 3. candlesticks
 
-
-
-
-#import matplotlib.pyplot as plt
-#import matplotlib.ticker as ticker
-#import datetime as datetime
-#import numpy as np
-#import pandas as pd
-#import matplotlib.dates as mdates
-#from matplotlib.finance import candlestick_ohlc, candlestick2_ohlc
-#all_stocks = pd.read_csv('all_stocks.csv',header=[0,1],index_col=0)
-#all_stocks.index = all_stocks.index.to_datetime()
-#quotes = all_stocks['AAPL'][-67:-1]
-#quotes = quotes.reset_index()
-#quotes = quotes[["index","Open","High",'Low',"Close"]]
-#quotes['index'] = quotes['index'].map(mdates.date2num)
-#fig, ax = plt.subplots()
-#candlestick2_ohlc(ax,quotes['Open'],quotes['High'],quotes['Low'],quotes['Close'],width=1.0, colorup='green', colordown='red',alpha=0.75)
-#plt.show()
-
+st_ = time.time()
 years = YearLocator()   # every year
 months = MonthLocator()  # every month
 yearsFmt = DateFormatter('%Y')
 
-start = datetime.date(1975,1,1)
+start = datetime.date(2000,1,1)
 end = datetime.date.today()
 
+date_index = pd.read_csv('Sector_data/basic.csv',header=0,index_col=0,usecols=[0])[2:]
 stock_list = pd.read_csv('stocklist.csv',header=0)
-basic_data = pd.read_csv('basic_industries.csv',header=[0,1],index_col=0)
-basic_data.index = basic_data.index.to_datetime()
-capgood_data = pd.read_csv('capital_goods.csv',header=[0,1],index_col=0)
-capgood_data.index = capgood_data.index.to_datetime()
-condur_data = pd.read_csv('consumer_durables.csv',header=[0,1],index_col=0)
-condur_data.index = condur_data.index.to_datetime()
-nondur_data = pd.read_csv('consumer_nondurable.csv',header=[0,1],index_col=0)
-nondur_data.index = nondur_data.index.to_datetime()
-conserve_data = pd.read_csv('consumer_service.csv',header=[0,1],index_col=0)
-conserve_data.index = conserve_data.index.to_datetime()
-energy_data = pd.read_csv('energy.csv',header=[0,1],index_col=0)
-energy_data.index = energy_data.index.to_datetime()
-finance_data = pd.read_csv('finance.csv',header=[0,1],index_col=0)
-finance_data.index = finance_data.index.to_datetime()
-health_data = pd.read_csv('health_care.csv',header=[0,1],index_col=0)
-health_data.index = health_data.index.to_datetime()
-misc_data = pd.read_csv('miscellaneous.csv',header=[0,1],index_col=0)
-misc_data.index = misc_data.index.to_datetime()
-tech_data = pd.read_csv('technology.csv',header=[0,1],index_col=0)
-tech_data.index = tech_data.index.to_datetime()
-trans_data = pd.read_csv('transportation.csv',header=[0,1],index_col=0)
-trans_data.index = trans_data.index.to_datetime()
-utility_data = pd.read_csv('utilities.csv',header=[0,1],index_col=0)
-utility_data.index = utility_data.index.to_datetime()
+loaded_symbol_data = {} #if a stock is searched the data is loaded to the dict for easier access later
+loaded_comp_data = {}
 
+#glpath = "C:\\Users\\ajhau\\Desktop\\Finance Program\\finance5\\program\\Gainer_loser\\gainer_loser.csv"
+#gldata = pd.read_csv(glpath, header=[0,1], index_col=0).tail(1)
+#glsym = sorted(list(set(gldata.columns.get_level_values(0))))
+#glv = sorted(list(set(gldata.columns.get_level_values(1))))
+#glpd = pd.DataFrame(index=glsym,columns=glv)
 
-#all_stocks = pd.read_csv('allstocks.csv',header=[0,1],index_col=0)
-#all_stocks.index = all_stocks.index.to_datetime()
+#for i in range(len(glv)):
+#    glpd[glpd.columns[i]] = [gldata[sym][glpd.columns[i]][0] for sym in glsym]
+#glpd = glpd.dropna()
 
-d = basic_data.index.to_datetime()
-date_e = d[-1].to_pydatetime()
+sec_data_path = "C:\\Users\\ajhau\\Desktop\\Sector_data" #-test
+sectors = list(set(stock_list['Sector']))
+sectors = sorted(sectors[1:])
+sec_file_names = []
+for files in os.listdir(sec_data_path):
+    if files.endswith(".csv"):
+        sec_file_names.append(str(files))
+
+date_index = pd.to_datetime(date_index.index)
+date_index = date_index[:-2]
+date_e = date_index[-2].to_pydatetime()
 year = date_e.year
 month = date_e.month
 day = date_e.day
-print year, month, day
-import time
-
+et_ = time.time()
+print 'Initial Setup Time:', et_- st_
 
 
 Ui_MainWindow, QMainWindow = loadUiType('Finance_temp.ui')
 class Main(QMainWindow,Ui_MainWindow):
     def __init__(self,parent=None):
+        st = time.time()
         super(Main, self).__init__(parent)
         self.setupUi(self)   
-        
-        #self.mdiArea.addSubWindow(self.market_summary)
+
         self.mdiArea.addSubWindow(self.tech_chart)
-        #self.mdiArea.addSubWindow(self.market_summary)
         #self.mdiArea.addSubWindow(self.sector_summary)
         self.mdiArea.addSubWindow(self.companysummary)
-        self.mdiArea.addSubWindow(self.financials_window)
-
+        #self.mdiArea.addSubWindow(self.financials_window)
+        #self.mdiArea.addSubWindow(self.market_summary)
 
         #Set up technical chart
         '''Sets up the main tech charts'''
-
         gs1 = gridspec.GridSpec(4, 1)
         gs1.update(left=0.01, right=0.95, top=.98, bottom=0.03,wspace=0,hspace=0)
         self.tech_chart_fig = Figure(facecolor='#191919') 
         self.tech_chart_canvas = FigureCanvas(self.tech_chart_fig)
         self.techchart_layout.addWidget(self.tech_chart_canvas)  
-        self.tech_chart_axis = self.tech_chart_fig.add_subplot(gs1[:, :],axisbg='#191919') 
+        self.tech_chart_axis = self.tech_chart_fig.add_subplot(gs1[:, :],facecolor='#191919') 
         self.tc_main_search.setText('AAPL')
         self.tc_sec_search1.setText('AAPL')
 
@@ -134,28 +106,28 @@ class Main(QMainWindow,Ui_MainWindow):
         self.tech_chart_fig2 = Figure(facecolor='#191919') 
         self.tech_chart_canvas2 = FigureCanvas(self.tech_chart_fig2)
         self.techchart_layout2.addWidget(self.tech_chart_canvas2)  
-        self.tech_chart_axis2 = self.tech_chart_fig2.add_subplot(gs2[:, :],axisbg='#191919') 
+        self.tech_chart_axis2 = self.tech_chart_fig2.add_subplot(gs2[:, :],facecolor='#191919') 
 
         gs3 = gridspec.GridSpec(4, 1)
         gs3.update(left=0.01, right=0.95, top=.98, bottom=0.035,wspace=0,hspace=0)
         self.tech_chart_fig3 = Figure(facecolor='#191919') 
         self.tech_chart_canvas3 = FigureCanvas(self.tech_chart_fig3)
         self.techchart_layout3.addWidget(self.tech_chart_canvas3)  
-        self.tech_chart_axis3 = self.tech_chart_fig3.add_subplot(gs3[:, :],axisbg='#191919') 
+        self.tech_chart_axis3 = self.tech_chart_fig3.add_subplot(gs3[:, :],facecolor='#191919') 
 
         gs4 = gridspec.GridSpec(4, 1)
         gs4.update(left=0.00, right=0.925, top=1.00, bottom=0.0675,wspace=0,hspace=0)
         self.cs_chart_fig = Figure(facecolor='#323232') 
         self.cs_chart_canvas = FigureCanvas(self.cs_chart_fig)
         self.cs_chart_layout.addWidget(self.cs_chart_canvas)  
-        self.cs_chart_axis = self.cs_chart_fig.add_subplot(gs4[:, :],axisbg='#323232') 
+        self.cs_chart_axis = self.cs_chart_fig.add_subplot(gs4[:, :],facecolor='#323232') 
 
         gs5 = gridspec.GridSpec(4, 1)
         gs5.update(left=0.00, right=0.925, top=1.00, bottom=0.0675,wspace=0,hspace=0)
         self.ss_pie_fig = Figure(facecolor='#323232') 
         self.ss_pie_canvas = FigureCanvas(self.ss_pie_fig)
         self.ss_pie_layout.addWidget(self.ss_pie_canvas)  
-        self.ss_pie_axis = self.ss_pie_fig.add_subplot(gs5[:, :],axisbg='#323232') 
+        self.ss_pie_axis = self.ss_pie_fig.add_subplot(gs5[:, :],facecolor='#323232') 
 
         #Tech Chart Search
         '''Main search bar in tech chart. when you press enter it calls the main search function'''
@@ -198,6 +170,7 @@ class Main(QMainWindow,Ui_MainWindow):
         self.tc_edit_bt.clicked.connect(self.tc_edit) #opens edit page
         self.tc_edit_update.clicked.connect(self.tc_chartedit_update) #update edit page
         self.tc_edit_cancel.clicked.connect(self.tc_chartedit_cancel)
+
         '''hides all other lines on edit page so the default above is the only one shown'''
         self.tc_edit_cancel.clicked.connect(self.tc_edit)
         signals = [self.tc_chartedit_panel_2,self.tc_chartedit_panel_3,
@@ -236,7 +209,6 @@ class Main(QMainWindow,Ui_MainWindow):
         self.tc_date_to.dateChanged.connect(self.tc_chartedit_update)
         self.tc_date_from.dateChanged.connect(self.tc_chartedit_update)
         to_year = self.tc_date_to.date().year()
-        print 'a', to_year
 
         #Technical chart date buttons
         date_buttons = [self.tc_one_day,self.tc_five_day,self.tc_one_month,self.tc_three_month, self.tc_six_month,
@@ -245,31 +217,69 @@ class Main(QMainWindow,Ui_MainWindow):
             b.clicked.connect(self.tc_date_buttons)
 
         #Market Summary
-        self.ms_gainer_filter.currentIndexChanged.connect(self.ms_gainers_loser)
+        self.ms_gainer_filter.currentIndexChanged.connect(self.ms_gainlose_table)
 
         #Fiancials Window
-        self.is_rb_1.clicked.connect(self.financial_window)
-        self.is_rb_2.clicked.connect(self.financial_window)
-        self.is_rb_3.clicked.connect(self.financial_window)
-        self.is_rb_4.clicked.connect(self.financial_window)
-        self.is_rb_5.clicked.connect(self.financial_window)
-        self.is_rb_6.clicked.connect(self.financial_window)
-        self.is_rb_7.clicked.connect(self.financial_window)
-        self.is_rb_8.clicked.connect(self.financial_window)
-        self.is_rb_9.clicked.connect(self.financial_window)
-        self.is_rb_10.clicked.connect(self.financial_window)
-        self.is_rb_11.clicked.connect(self.financial_window)
-        self.is_rb_12.clicked.connect(self.financial_window)
-        self.is_rb_13.clicked.connect(self.financial_window)
+        #self.is_rb_1.clicked.connect(self.financial_window)
+        #self.is_rb_2.clicked.connect(self.financial_window)
+        #self.is_rb_3.clicked.connect(self.financial_window)
+        #self.is_rb_4.clicked.connect(self.financial_window)
+        #self.is_rb_5.clicked.connect(self.financial_window)
+        #self.is_rb_6.clicked.connect(self.financial_window)
+        #self.is_rb_7.clicked.connect(self.financial_window)
+        #self.is_rb_8.clicked.connect(self.financial_window)
+        #self.is_rb_9.clicked.connect(self.financial_window)
+        #self.is_rb_10.clicked.connect(self.financial_window)
+        #self.is_rb_11.clicked.connect(self.financial_window)
+        #self.is_rb_12.clicked.connect(self.financial_window)
+        #self.is_rb_13.clicked.connect(self.financial_window)
 
-        
+        #Company Summary 
+        self.cs_search.returnPressed.connect(self.company_summary)
+
+        '''comptetitors table'''
+        cs_comp_header = [self.cs_sym_0,self.cs_name_0,self.cs_price_0,self.cs_chg_0,self.cs_mrk_0]
+        for header in cs_comp_header:
+            header.currentIndexChanged.connect(self.cs_competitor_table)
+        et = time.time()
+        print 'GUI Setup Time:', et-st
+
+        '''historical table edit page'''
+        self.cs_hist_edit.setMinimumHeight(0)
+        self.cs_hist_edit.setMaximumHeight(0)
+        self.cs_hist_oedit.clicked.connect(self.cs_hist_openedit)
+
+        date_buttons = [self.cs_histedit_daily,self.cs_histedit_weekly,self.cs_histedit_monthly,
+                        self.cs_histedit_quarterly,self.cs_histedit_yearly]
+        for d in date_buttons:
+            d.clicked.connect(self.cs_hist_table)
+
+        data = self.get_symbol_data('TSLA')
+        recdate = pd.to_datetime(data.index[-1])
+        self.cs_hedit_datet.setDate(QtCore.QDate(recdate.year,recdate.month,recdate.day))
+        self.cs_hedit_datef.setDate(QtCore.QDate(recdate.year-1,recdate.month,recdate.day))
+
+        hedit_columns = [self.cs_hsearch0,self.cs_hsearch1,self.cs_hsearch2,self.cs_hsearch3,self.cs_hsearch4,
+                        self.cs_hsearch5,self.cs_hsearch6,self.cs_hsearch7,self.cs_hsearch8,self.cs_hsearch9,
+                        self.cs_hsearch10,self.cs_hsearch11,self.cs_hsearch12,self.cs_hsearch13,self.cs_hsearch14,
+                        self.cs_hsearch15,self.cs_hsearch16,self.cs_hsearch17,self.cs_hsearch18,self.cs_hsearch19]
+        for h in hedit_columns:
+            h.returnPressed.connect(self.cs_hist_table)
+        self.cs_hedit_datef.dateChanged.connect(self.cs_hist_table)
+        self.cs_hedit_datet.dateChanged.connect(self.cs_hist_table)
+
+        cs_pagesb = [self.cs_smryb,self.cs_histb,self.cs_ratiob,self.cs_finstatb,self.cs_corpinfob]
+        for p in cs_pagesb:
+            p.clicked.connect(self.cs_pages)
+
         #start functions
         self.tc_mainsearch() #clears all graph data and plots just the default data
-        self.ms_gainers_loser()
+        #self.ms_gainers_loser()
         self.company_summary()
-        self.financial_window()
+        #self.financial_window()
 
     def tc_search1(self):
+        st = time.time()
         '''called when the top search bar is used. when a new str is entered it updates the 
            first line of the eddit page'''
         symbol = str(self.tc_main_search.text())
@@ -298,9 +308,12 @@ class Main(QMainWindow,Ui_MainWindow):
         panels =  [self.tc_chartedit_panel_2,self.tc_chartedit_panel_3,self.tc_chartedit_panel_4,self.tc_chartedit_panel_5,self.tc_chartedit_panel_6]
         for p in panels:
             p.setCurrentIndex(0)
+        et = time.time()
+        print 'tc_search1', et-st
         self.tc_mainsearch() ###
 
     def tc_search2(self):
+        st = time.time()
         ##same as tc_search1 but need to add more##
         '''called when the side panel search bar is used'''
         symbol = str(self.tc_sec_search1.text())
@@ -329,9 +342,13 @@ class Main(QMainWindow,Ui_MainWindow):
         panels =  [self.tc_chartedit_panel_2,self.tc_chartedit_panel_3,self.tc_chartedit_panel_4,self.tc_chartedit_panel_5,self.tc_chartedit_panel_6]
         for p in panels:
             p.setCurrentIndex(0)
+        et = time.time()
+        print 'tc_search2', et-st
+
         self.tc_mainsearch()
 
     def tc_search3(self):
+        st = time.time()
         symbol1 = str(self.tc_sec_search1.text())
         self.techchart_widget.setCurrentIndex(0)
         self.tc_chartedit_panel.setCurrentIndex(1)
@@ -373,6 +390,8 @@ class Main(QMainWindow,Ui_MainWindow):
         panels =  [self.tc_chartedit_panel_3,self.tc_chartedit_panel_4,self.tc_chartedit_panel_5,self.tc_chartedit_panel_6]
         for p in panels:
             p.setCurrentIndex(0)
+        et = time.time()
+        print 'tc_search3', et-st
         self.tc_compare()
 
     def tc_compare(self):
@@ -398,7 +417,6 @@ class Main(QMainWindow,Ui_MainWindow):
             
         from_index = from_.strftime('%Y-%m-%d')
         to_index = to_.strftime('%Y-%m-%d')
-
 
         self.tech_chart_axis.clear()
         self.tech_chart_axis.grid(True, which='major', color='w', linestyle='--')  
@@ -436,23 +454,23 @@ class Main(QMainWindow,Ui_MainWindow):
         ax1_max2 = float(max2 + (close_diff2*0.10))
         self.tech_chart_axis_c.set_ylim([round(ax1_min2,2),round(ax1_max2,2)])
 
-
         self.tech_chart_canvas.draw()
 
         et = time.time()
-        print 'tc_compare ', et-st
+        print 'tc_compare', et-st
 
     def tc_mainsearch(self):
         st = time.time()
         '''Fisrt function to be called. sets up the main charts axis and grid then plots 
            the most recent years stock prices of a default company. Called whenever the 
            tech chart main search is used and deletes lines on edit page, and study tab'''
+
+        #hides the search filters and clear the text
         panels = [self.tc_chartedit_panel_2,self.tc_chartedit_symbol_2,self.tc_chartedit_series_2,
-                    self.tc_chartedit_line_2,self.tc_chartedit_size_2,self.tc_chartedit_color_2]
+                  self.tc_chartedit_line_2,self.tc_chartedit_size_2,self.tc_chartedit_color_2]
         for p in panels:
             p.setMaximumHeight(0)
             p.setMinimumHeight(0)
-
         self.tc_chartedit_panel_2.setCurrentIndex(0)
         self.tc_chartedit_symbol_2.setText('')
         self.tc_chartedit_series_2.setText(''),
@@ -499,6 +517,8 @@ class Main(QMainWindow,Ui_MainWindow):
         self.tech_chart_axis.yaxis.set_major_locator(LinearLocator(10))
         self.tech_chart_axis.xaxis.set_major_locator(LinearLocator(12))
         self.tech_chart_fig.set_tight_layout(tight=True)
+        dateform = mdates.DateFormatter('%m/%y')
+        self.tech_chart_axis.xaxis.set_major_formatter(dateform)
         self.tech_chart_axis.yaxis.tick_right()
 
         #Gets the dates from the QtdateEdits
@@ -529,29 +549,23 @@ class Main(QMainWindow,Ui_MainWindow):
             to_ = datetime.datetime(from_year,from_month,from_day-2)
         elif to_ in holidays:
             to_ = datetime.datetime(from_year,from_month,from_day+1)
-            
-        from_index = from_.strftime('%Y-%m-%d')
-        to_index = to_.strftime('%Y-%m-%d')
 
         symbol = str(self.tc_main_search.text())
         data = self.get_symbol_data(symbol)
 
         '''still need to add candlestick'''
-        self.tech_chart_axis.plot(data['Close'],lw=5,alpha=0.75,color='#57bcff',linestyle='-')
         #candlestick2_ohlc(self.tech_chart_axis,data['Open'],data['High'],data['Low'],data['Close'])
         #candlestick_ohlc(self.tech_chart_axis,data[['Open','High','Low','Close','Volume']])
 
         #sets the graph so the highest and lowest point on the line is 10% away from the edge
-        close_min = data['Close'].loc[from_index:to_index].min()
-        close_max = data['Close'].loc[from_index:to_index].max()
+        close_min = data['Close'].loc[from_:to_].min()
+        close_max = data['Close'].loc[from_:to_].max()
         close_diff = float(close_max - close_min)
         ax1_min = float(close_min - (close_diff*0.10))
         ax1_max = float(close_max + (close_diff*0.10))
         self.tech_chart_axis.set_ylim([round(ax1_min,2),round(ax1_max,2)])
-
+        self.tech_chart_axis.plot(data['Close'].loc[from_:to_],lw=5,alpha=0.75,color='#57bcff',linestyle='-')
         self.tech_chart_canvas.draw()
-        et = time.time()
-        print 'tc_mainsearch', et-st
 
         name = stock_list.loc[stock_list['Symbol']==symbol,'Name']
         name = list(name)
@@ -562,6 +576,8 @@ class Main(QMainWindow,Ui_MainWindow):
         self.tc_legend_open.setText(str(round(data['Open'][-1],2)))
         self.tc_legend_high.setText(str(round(data['High'][-1],2)))
         self.tc_legend_low.setText(str(round(data['Low'][-1],2)))
+        et = time.time()
+        print 'tc_mainsearch', et-st
         #Time: 0.95
 
     def tc_study1(self):
@@ -611,7 +627,7 @@ class Main(QMainWindow,Ui_MainWindow):
             self.tc_chartedit_color_2.setStyleSheet('background-color: rgb(87, 188, 255);')
             self.tc_chartedit_style_2.setCurrentIndex(0)
         et = time.time()
-        print 'tc_study1 ', et-st
+        print 'tc_study1', et-st
 
         self.tc_editline1()
         self.tc_editline2()
@@ -737,10 +753,8 @@ class Main(QMainWindow,Ui_MainWindow):
             self.tc_chartedit_color_4.setStyleSheet('background-color: rgb(255, 255, 255);')
             self.tc_chartedit_style_4.setCurrentIndex(2)
         et = time.time()
-        print 'study 2:', et-st
+        print 'tc_study2', et-st
         #Time: 0.001-0.004
-
-
 
         self.tc_editline1()
         self.tc_editline2()
@@ -756,7 +770,6 @@ class Main(QMainWindow,Ui_MainWindow):
                 newline.append(panels.index(p))
             else:
                 pass
-        print 'nl', newline
         if self.tc_movavg.text() != '':
             if newline[0]+2 == 2:
                 keep = [self.tc_chartedit_panel_2,self.tc_chartedit_symbol_2,self.tc_chartedit_series_2,
@@ -1074,7 +1087,6 @@ class Main(QMainWindow,Ui_MainWindow):
                 self.tc_plot_macdsignal(axis,symbol,size,panel,fig,color,style)
             elif series == 'MACD Histogram':
                 self.tc_plot_macdhist(axis,symbol,size,panel,fig,color,style)
-                
 
         elif panel == '2':
             #set up the grid line, colors, layout  
@@ -1153,7 +1165,7 @@ class Main(QMainWindow,Ui_MainWindow):
                 self.tc_plot_macdhist(axis,symbol,size,panel,fig,color,style)
 
         et = time.time()
-        print 'tc_editline1 ', et-st
+        print 'tc_editline1', et-st
         #Time: 1.05 - 1.12
 
     def tc_editline2(self):
@@ -1281,7 +1293,7 @@ class Main(QMainWindow,Ui_MainWindow):
             elif series == 'MACD Histogram':
                 self.tc_plot_macdhist(axis,symbol,size,panel,fig,color,style)
         et = time.time()
-        print 'tc_editline2 ', et-st
+        print 'tc_editline2', et-st
         #Time: 0.21
 
     def tc_editline3(self):
@@ -1404,7 +1416,7 @@ class Main(QMainWindow,Ui_MainWindow):
             elif series == 'MACD Histogram':
                 self.tc_plot_macdhist(axis,symbol,size,panel,fig,color,style)
         et = time.time()
-        print 'tc_editline3 ', et-st
+        print 'tc_editline3', et-st
         #Time: 0.20
         
     def tc_editline4(self):
@@ -1535,7 +1547,7 @@ class Main(QMainWindow,Ui_MainWindow):
         #if style == 'Line Plot':
         axis.tick_params(axis='x', colors='w',labelsize=20)
         axis.plot(data['Close'],lw=int(size),alpha=0.6,color=color,linestyle=style[6:])
-        self.tc_set_axis(axis,symbol,fig,'Close')
+        self.tc_set_axis(axis,symbol,fig,'Close',data)
         fig.draw()
         #elif style == 'OHLC Candlestick':
         #    quotes = data
@@ -1575,7 +1587,7 @@ class Main(QMainWindow,Ui_MainWindow):
 
         #axis.bar(dates,volume,width=int(size),color=color,align='center')
         axis.plot(data['Volume'],lw=int(size),alpha=0.6,color=str(color),linestyle=style[6:])
-        self.tc_set_axis(axis,symbol,fig,'Volume')
+        self.tc_set_axis(axis,symbol,fig,'Volume',data)
         self.tech_chart_canvas.draw()
         self.tech_chart_canvas2.draw()
         et = time.time()
@@ -1778,13 +1790,12 @@ class Main(QMainWindow,Ui_MainWindow):
         self.tech_chart_fig = Figure(facecolor='#191919') 
         self.tech_chart_canvas = FigureCanvas(self.tech_chart_fig)
         self.techchart_layout.addWidget(self.tech_chart_canvas)  
-        self.tech_chart_axis = self.tech_chart_fig.add_subplot(gs1[:, :],axisbg=bgcolor) 
+        self.tech_chart_axis = self.tech_chart_fig.add_subplot(gs1[:, :],facecolor=bgcolor) 
         self.tc_main_search.setText('AAPL')
         self.tc_sec_search1.setText('AAPL')
 
-    def tc_set_axis(self,axis,symbol,fig,series):
+    def tc_set_axis(self,axis,symbol,fig,series,data):
         st = time.time()
-        data = self.get_symbol_data(symbol)
 
         '''Called from the main search function and also whenever the date range or buttons is changed. 
            gets the updated date from either the buttons or range, then sets the chart axis to the same start/end dates '''
@@ -1834,7 +1845,7 @@ class Main(QMainWindow,Ui_MainWindow):
         for b in date_buttons:
             b.setChecked(False)
         et = time.time()
-        print 'set axis', et-st
+        print 'tc_set_axis', et-st
         fig.draw()
 
     def tc_date_buttons(self):
@@ -1944,204 +1955,93 @@ class Main(QMainWindow,Ui_MainWindow):
 
             self.study_line2.setMinimumHeight(5)
             self.study_line2.setMaximumHeight(5)
+ 
+    def cs_competitor_table(self):
+        st = time.time()
+        symbol = str(self.cs_search.text())
+        comp_data = self.cs_competitors(symbol)
 
-    def ms_gainers_loser(self):
+        label_header = [self.cs_sym_0,self.cs_name_0,self.cs_price_0,self.cs_chg_0,self.cs_mrk_0]
+        label_layout = [[self.cs_sym_1,self.cs_name_1,self.cs_price_1,self.cs_chg_1,self.cs_mrk_1],
+                        [self.cs_sym_2,self.cs_name_2,self.cs_price_2,self.cs_chg_2,self.cs_mrk_2],
+                        [self.cs_sym_3,self.cs_name_3,self.cs_price_3,self.cs_chg_3,self.cs_mrk_3],
+                        [self.cs_sym_4,self.cs_name_4,self.cs_price_4,self.cs_chg_4,self.cs_mrk_4],
+                        [self.cs_sym_5,self.cs_name_5,self.cs_price_5,self.cs_chg_5,self.cs_mrk_5],
+                        [self.cs_sym_6,self.cs_name_6,self.cs_price_6,self.cs_chg_6,self.cs_mrk_6],
+                        [self.cs_sym_7,self.cs_name_7,self.cs_price_7,self.cs_chg_7,self.cs_mrk_7],
+                        [self.cs_sym_8,self.cs_name_8,self.cs_price_8,self.cs_chg_8,self.cs_mrk_8],
+                        [self.cs_sym_9,self.cs_name_9,self.cs_price_9,self.cs_chg_9,self.cs_mrk_9],
+                        [self.cs_sym_10,self.cs_name_10,self.cs_price_10,self.cs_chg_10,self.cs_mrk_10]]
+
+        comp_col = [str(x.currentText()).lstrip() for x in label_header]
+        comp_data = comp_data.sort_values('Mrk Cap',ascending=False)
+        comp_data['Mrk Cap'] = ["${:,.0f}".format(int(x)) for x in comp_data['Mrk Cap']]
+        comp_data['% Change'] = [str(round(float(c)*100,3))+'%' if c != '' else c for c in comp_data['% Change']]
+        comp_data = comp_data[comp_col]
+
+        ncols = range(len(comp_data.columns)) #[0,1,2,3,4]
+        nrows = range(len(comp_data['Symbol'])) 
+        if len(nrows) > 10:
+            nrows = nrows[:10]
+        else:
+            pass 
+
+        for row in nrows:
+            for col in ncols:
+                value = comp_data[comp_data.columns[col]][comp_data.index[row]]
+                label_layout[row][col].setText(str(value))  
+
+        et = time.time()
+        print 'Cs_competitor_table Time:', et-st
+
+    def sector_summary(self):
         pass
-        #st = time.time()
 
-        #last_change = {}
-        #last_pchange = {}
-        #stock = list(all_stocks.columns.levels[0])
-        #for i in stock:
-        #    chg = round(all_stocks[i]['Change'][-1],2)
-        #    pchg = round(all_stocks[i]['% Change'][-1],2)
-        #    last_change[i] = chg
-        #    last_pchange[i] = pchg
+    def get_symbol_data(self, symbol):
+        st0 = time.time()
+        #path = "C:\\Users\\ajhau\\Desktop\\Finance Program\\finance5\\program\\Sector_data" #- real
+        path = "C:\\Users\\ajhau\\Desktop\\Sector_data" #-test
+        if symbol in loaded_symbol_data.keys(): 
+            data = loaded_symbol_data[symbol]
+            et0 = time.time()
+            return data
+            print 'get_symbol_data','time0', et0-st0
+        else:
+            sector = list(stock_list.loc[stock_list['Symbol']==symbol,'Sector'])[0] #get the sector for the symbol
+            index_num = sectors.index(sector) #index number for that sector
 
-        #last_chg = pd.DataFrame(last_change,index=last_change.keys())
-        #last_chg.index = range(len(last_chg.index))
-        #last_chg = last_chg[:1]
-        #last_chg = last_chg.T
-        #last_chg['Rank'] = last_chg[0].rank(ascending=False)
+            #opens the csv for that sector and makes a list for the first row symbols 
+            with open(path+'\\'+sec_file_names[index_num]) as f:
+                reader = csv.reader(f)
+                sec_symbols = next(reader)
 
-        #last_pchg = pd.DataFrame(last_pchange,index=last_pchange.keys())
-        #last_pchg.index = range(len(last_pchg.index))
-        #last_pchg = last_pchg[:1]
-        #last_pchg = last_pchg.T
-        #last_pchg['Rank'] = last_pchg[0].rank(ascending=False)
+            #from that list return the position of the symbols
+            sym_ind = [0]
+            for i, s in enumerate(sec_symbols):
+                if s == symbol:
+                    sym_ind.append(i)
+                else:
+                    pass
+            sym_ind = np.array(sym_ind)
 
-        #if self.ms_gainer_filter.currentText() == 'Price Change':
-        #    gain1 = last_chg.loc[last_chg['Rank']==1]
-        #    gainsym1 = str(list(gain1.index)[0])
-        #    self.ms_gainer_sym1.setText(gainsym1)
-        #    gainname1 = str(list(stock_list.loc[stock_list['Symbol']==gainsym1,'Name'])[0])
-        #    self.ms_gainer_name1.setText(gainname1)
-        #    self.ms_gainer_price1.setText(str(round(all_stocks[gainsym1]['Close'][-1],2)))
-        #    self.ms_gainer_chg1.setText('+'+str(list(last_chg.loc[last_chg.index==gainsym1,0])[0]))
+            data = pd.read_csv(path+'\\'+sec_file_names[index_num],header=1,index_col=0,usecols=sym_ind)[1:] #load the data for just the symbol called
+            data.index = pd.to_datetime(data.index, infer_datetime_format=True) #format='%m/%d/%Y')
+            data.columns = [x.split('.')[0] for x in data.columns]
+            loaded_symbol_data[symbol] = data
 
-        #    gain2 = last_chg.loc[last_chg['Rank']==2]
-        #    gainsym2 = str(list(gain2.index)[0])
-        #    self.ms_gainer_sym2.setText(gainsym2)
-        #    gainname2 = str(list(stock_list.loc[stock_list['Symbol']==gainsym2,'Name'])[0])
-        #    self.ms_gainer_name2.setText(gainname2)
-        #    self.ms_gainer_price2.setText(str(round(all_stocks[gainsym2]['Close'][-1],2)))
-        #    self.ms_gainer_chg2.setText('+'+str(list(last_chg.loc[last_chg.index==gainsym2,0])[0]))
-
-        #    gain3 = last_chg.loc[last_chg['Rank']==3]
-        #    gainsym3 = str(list(gain3.index)[0])
-        #    self.ms_gainer_sym3.setText(gainsym3)
-        #    gainname3 = str(list(stock_list.loc[stock_list['Symbol']==gainsym3,'Name'])[0])
-        #    self.ms_gainer_name3.setText(gainname3)
-        #    self.ms_gainer_price3.setText(str(round(all_stocks[gainsym3]['Close'][-1],2)))
-        #    self.ms_gainer_chg3.setText('+'+str(list(last_chg.loc[last_chg.index==gainsym3,0])[0]))
-
-        #    gain4 = last_chg.loc[last_chg['Rank']==4]
-        #    gainsym4 = str(list(gain4.index)[0])
-        #    self.ms_gainer_sym4.setText(gainsym4)
-        #    gainname4 = str(list(stock_list.loc[stock_list['Symbol']==gainsym4,'Name'])[0])
-        #    self.ms_gainer_name4.setText(gainname4)
-        #    self.ms_gainer_price4.setText(str(round(all_stocks[gainsym4]['Close'][-1],2)))
-        #    self.ms_gainer_chg4.setText('+'+str(list(last_chg.loc[last_chg.index==gainsym4,0])[0]))
-
-        #    gain5 = last_chg.loc[last_chg['Rank']==5]
-        #    gainsym5 = str(list(gain5.index)[0])
-        #    self.ms_gainer_sym5.setText(gainsym5)
-        #    gainname5 = str(list(stock_list.loc[stock_list['Symbol']==gainsym5,'Name'])[0])
-        #    self.ms_gainer_name5.setText(gainname5)
-        #    self.ms_gainer_price5.setText(str(round(all_stocks[gainsym5]['Close'][-1],2)))
-        #    self.ms_gainer_chg5.setText('+'+str(list(last_chg.loc[last_chg.index==gainsym5,0])[0]))
-
-        #    loss1 = last_chg.loc[last_chg['Rank']==494]
-        #    losssym1 = str(list(loss1.index)[0])
-        #    self.ms_loser_sym1.setText(losssym1)
-        #    lossname1 = str(list(stock_list.loc[stock_list['Symbol']==losssym1,'Name'])[0])
-        #    self.ms_loser_name1.setText(lossname1)
-        #    self.ms_loser_price1.setText(str(round(all_stocks[losssym1]['Close'][-1],2)))
-        #    self.ms_loser_chg1.setText(str(list(last_chg.loc[last_chg.index==losssym1,0])[0]))
-
-        #    loss2 = last_chg.loc[last_chg['Rank']==493]
-        #    losssym2 = str(list(loss2.index)[0])
-        #    self.ms_loser_sym2.setText(losssym2)
-        #    lossname2 = str(list(stock_list.loc[stock_list['Symbol']==losssym2,'Name'])[0])
-        #    self.ms_loser_name2.setText(lossname2)
-        #    self.ms_loser_price2.setText(str(round(all_stocks[losssym2]['Close'][-1],2)))
-        #    self.ms_loser_chg2.setText(str(list(last_chg.loc[last_chg.index==losssym2,0])[0]))
-
-        #    loss3 = last_chg.loc[last_chg['Rank']==492]
-        #    losssym3 = str(list(loss3.index)[0])
-        #    self.ms_loser_sym3.setText(losssym3)
-        #    lossname3 = str(list(stock_list.loc[stock_list['Symbol']==losssym3,'Name'])[0])
-        #    self.ms_loser_name3.setText(lossname3)
-        #    self.ms_loser_price3.setText(str(round(all_stocks[losssym3]['Close'][-1],2)))
-        #    self.ms_loser_chg3.setText(str(list(last_chg.loc[last_chg.index==losssym3,0])[0]))
-
-        #    loss4 = last_chg.loc[last_chg['Rank']==491]
-        #    losssym4 = str(list(loss4.index)[0])
-        #    self.ms_loser_sym4.setText(losssym4)
-        #    lossname4 = str(list(stock_list.loc[stock_list['Symbol']==losssym4,'Name'])[0])
-        #    self.ms_loser_name4.setText(lossname4)
-        #    self.ms_loser_price4.setText(str(round(all_stocks[losssym4]['Close'][-1],2)))
-        #    self.ms_loser_chg4.setText(str(list(last_chg.loc[last_chg.index==losssym4,0])[0]))
-
-        #    loss5 = last_chg.loc[last_chg['Rank']==490]
-        #    losssym5 = str(list(loss5.index)[0])
-        #    self.ms_loser_sym5.setText(losssym5)
-        #    lossname5 = str(list(stock_list.loc[stock_list['Symbol']==losssym5,'Name'])[0])
-        #    self.ms_loser_name5.setText(lossname5)
-        #    self.ms_loser_price5.setText(str(round(all_stocks[losssym5]['Close'][-1],2)))
-        #    self.ms_loser_chg5.setText(str(list(last_chg.loc[last_chg.index==losssym5,0])[0]))
-
-        #elif self.ms_gainer_filter.currentText() == 'Price % Change':
-        #    gain1 = last_pchg.loc[last_pchg['Rank']==1]
-        #    gainsym1 = str(list(gain1.index)[0])
-        #    self.ms_gainer_sym1.setText(gainsym1)
-        #    gainname1 = str(list(stock_list.loc[stock_list['Symbol']==gainsym1,'Name'])[0])
-        #    self.ms_gainer_name1.setText(gainname1)
-        #    self.ms_gainer_price1.setText(str(round(all_stocks[gainsym1]['Close'][-1],2)))
-        #    self.ms_gainer_chg1.setText('+'+str(list(last_pchg.loc[last_pchg.index==gainsym1,0])[0])+'%')
-
-        #    gain2 = last_pchg.loc[last_pchg['Rank']==2]
-        #    gainsym2 = str(list(gain2.index)[0])
-        #    self.ms_gainer_sym2.setText(gainsym2)
-        #    gainname2 = str(list(stock_list.loc[stock_list['Symbol']==gainsym2,'Name'])[0])
-        #    self.ms_gainer_name2.setText(gainname2)
-        #    self.ms_gainer_price2.setText(str(round(all_stocks[gainsym2]['Close'][-1],2)))
-        #    self.ms_gainer_chg2.setText('+'+str(list(last_pchg.loc[last_pchg.index==gainsym2,0])[0])+'%')
-
-        #    gain3 = last_pchg.loc[last_pchg['Rank']==3]
-        #    gainsym3 = str(list(gain3.index)[0])
-        #    self.ms_gainer_sym3.setText(gainsym3)
-        #    gainname3 = str(list(stock_list.loc[stock_list['Symbol']==gainsym3,'Name'])[0])
-        #    self.ms_gainer_name3.setText(gainname3)
-        #    self.ms_gainer_price3.setText(str(round(all_stocks[gainsym3]['Close'][-1],2)))
-        #    self.ms_gainer_chg3.setText('+'+str(list(last_pchg.loc[last_pchg.index==gainsym3,0])[0])+'%')
-
-        #    gain4 = last_pchg.loc[last_pchg['Rank']==4]
-        #    gainsym4 = str(list(gain4.index)[0])
-        #    self.ms_gainer_sym4.setText(gainsym4)
-        #    gainname4 = str(list(stock_list.loc[stock_list['Symbol']==gainsym4,'Name'])[0])
-        #    self.ms_gainer_name4.setText(gainname4)
-        #    self.ms_gainer_price4.setText(str(round(all_stocks[gainsym4]['Close'][-1],2)))
-        #    self.ms_gainer_chg4.setText('+'+str(list(last_pchg.loc[last_pchg.index==gainsym4,0])[0])+'%')
-
-        #    gain5 = last_pchg.loc[last_pchg['Rank']==5]
-        #    gainsym5 = str(list(gain5.index)[0])
-        #    self.ms_gainer_sym5.setText(gainsym5)
-        #    gainname5 = str(list(stock_list.loc[stock_list['Symbol']==gainsym5,'Name'])[0])
-        #    self.ms_gainer_name5.setText(gainname5)
-        #    self.ms_gainer_price5.setText(str(round(all_stocks[gainsym5]['Close'][-1],2)))
-        #    self.ms_gainer_chg5.setText('+'+str(list(last_pchg.loc[last_pchg.index==gainsym5,0])[0])+'%')
-
-        #    loss1 = last_pchg.loc[last_pchg['Rank']==494]
-        #    losssym1 = str(list(loss1.index)[0])
-        #    self.ms_loser_sym1.setText(losssym1)
-        #    lossname1 = str(list(stock_list.loc[stock_list['Symbol']==losssym1,'Name'])[0])
-        #    self.ms_loser_name1.setText(lossname1)
-        #    self.ms_loser_price1.setText(str(round(all_stocks[losssym1]['Close'][-1],2)))
-        #    self.ms_loser_chg1.setText(str(list(last_pchg.loc[last_pchg.index==losssym1,0])[0])+'%')
-
-        #    loss2 = last_pchg.loc[last_pchg['Rank']==493]
-        #    losssym2 = str(list(loss2.index)[0])
-        #    self.ms_loser_sym2.setText(losssym2)
-        #    lossname2 = str(list(stock_list.loc[stock_list['Symbol']==losssym2,'Name'])[0])
-        #    self.ms_loser_name2.setText(lossname2)
-        #    self.ms_loser_price2.setText(str(round(all_stocks[losssym2]['Close'][-1],2)))
-        #    self.ms_loser_chg2.setText(str(list(last_pchg.loc[last_pchg.index==losssym2,0])[0])+'%')
-
-        #    loss3 = last_pchg.loc[last_pchg['Rank']==492]
-        #    losssym3 = str(list(loss3.index)[0])
-        #    self.ms_loser_sym3.setText(losssym3)
-        #    lossname3 = str(list(stock_list.loc[stock_list['Symbol']==losssym3,'Name'])[0])
-        #    self.ms_loser_name3.setText(lossname3)
-        #    self.ms_loser_price3.setText(str(round(all_stocks[losssym3]['Close'][-1],2)))
-        #    self.ms_loser_chg3.setText(str(list(last_pchg.loc[last_pchg.index==losssym3,0])[0])+'%')
-
-        #    loss4 = last_pchg.loc[last_pchg['Rank']==491]
-        #    losssym4 = str(list(loss4.index)[0])
-        #    self.ms_loser_sym4.setText(losssym4)
-        #    lossname4 = str(list(stock_list.loc[stock_list['Symbol']==losssym4,'Name'])[0])
-        #    self.ms_loser_name4.setText(lossname4)
-        #    self.ms_loser_price4.setText(str(round(all_stocks[losssym4]['Close'][-1],2)))
-        #    self.ms_loser_chg4.setText(str(list(last_pchg.loc[last_pchg.index==losssym4,0])[0])+'%')
-
-        #    loss5 = last_pchg.loc[last_pchg['Rank']==490]
-        #    losssym5 = str(list(loss5.index)[0])
-        #    self.ms_loser_sym5.setText(losssym5)
-        #    lossname5 = str(list(stock_list.loc[stock_list['Symbol']==losssym5,'Name'])[0])
-        #    self.ms_loser_name5.setText(lossname5)
-        #    self.ms_loser_price5.setText(str(round(all_stocks[losssym5]['Close'][-1],2)))
-        #    self.ms_loser_chg5.setText(str(list(last_pchg.loc[last_pchg.index==losssym5,0])[0])+'%')
-
-        #et = time.time()
-        #print 'gainer/loser', et-st
+            et0 = time.time()
+            print 'get_symbol_data', et0-st0
+            return data
 
     def company_summary(self):  
         st = time.time()
+        self.cs_stackedwidget.setCurrentIndex(0)
+
         symbol = str(self.cs_search.text())
         data = self.get_symbol_data(symbol)
 
+        self.cs_competitors(symbol)
         stock = Share(symbol)
-
         today_date = datetime.date.today()
         year_date = datetime.datetime(today_date.year-1,today_date.month,today_date.day)
         year_date = year_date.strftime('%Y-%m-%d')
@@ -2150,12 +2050,15 @@ class Main(QMainWindow,Ui_MainWindow):
         sym_yhigh = round(data['Close'].loc[year_date:today_date].max(),2)
         sym_ylow = round(data['Close'].loc[year_date:today_date].min(),2)
         sym_avgvol = round(data['Volume'].loc[year_date:today_date].mean(),2)
+        sym_avgvol = "{:,.0f}".format(int(sym_avgvol))
 
         sym_open = round(data['Open'][-1],2)
         sym_close = round(data['Close'][-1],2)
         sym_high = round(data['High'][-1],2)
         sym_low = round(data['Low'][-1],2)
         sym_vol = round(data['Volume'][-1],2)
+        sym_vol = "{:,.0f}".format(int(sym_vol))
+
         sym_chg = round(data['Change'][-1],2)
         sym_pchg = round(data['% Change'][-1],2)
         sym_ychg = round(((sym_close - sym_yclose)/sym_yclose)*100,2)
@@ -2163,8 +2066,13 @@ class Main(QMainWindow,Ui_MainWindow):
         sym_pe = str(stock.get_price_earnings_ratio())
         sym_div = str(stock.get_dividend_share())
         sym_divy = str(stock.get_dividend_yield())
-        sym_avgvol = str(stock.get_avg_daily_volume())
         sym_mrkcap = str(stock.get_market_cap())
+        sym_mrkcap = float(sym_mrkcap[:-1])*(10**9) if sym_mrkcap[-1] == 'B' else float(sym_mrkcap[:-1])*(10**6)
+        sym_mrkcap = "${:,.0f}".format(int(sym_mrkcap))
+
+        sym_shares = data['Mrk Cap'][-1]/float(data['Close'][-1])
+        sym_shares = int(math.ceil(sym_shares/ 10000.0)) * 10000
+        sym_shares = "{:,.0f}".format(int(sym_shares))
         close_data = data['Close']
 
         self.cs_price.setText(str(sym_close))
@@ -2179,9 +2087,10 @@ class Main(QMainWindow,Ui_MainWindow):
         self.cs_yearlow.setText(str(sym_ylow))
         self.cs_yearhigh.setText(str(sym_yhigh))
         self.cs_dayvol.setText(str(sym_vol))
-        self.cs_ytdchg.setText(str(sym_ychg))
+        self.cs_ytdchg.setText(str(sym_ychg)+'%')
         self.cs_avgvol.setText(str(sym_avgvol))
         self.cs_mrkcap.setText(str(sym_mrkcap))
+        self.cs_sharesout.setText(sym_shares)
 
         sector = stock_list.loc[stock_list['Symbol'] == symbol, 'Sector']
 
@@ -2195,8 +2104,8 @@ class Main(QMainWindow,Ui_MainWindow):
         self.cs_chart_axis.spines['right'].set_color("w")
         self.cs_chart_axis.tick_params(axis='y', colors='w',labelsize=15)
         self.cs_chart_axis.tick_params(axis='x', colors='w',labelsize=15)
-        self.cs_chart_axis.yaxis.set_major_locator(LinearLocator(10))
-        self.cs_chart_axis.xaxis.set_major_locator(LinearLocator(12))
+        #self.cs_chart_axis.yaxis.set_major_locator(LinearLocator(10))
+        #self.cs_chart_axis.xaxis.set_major_locator(LinearLocator(12))
         self.cs_chart_axis.yaxis.tick_right()
         self.cs_chart_axis.fill_between(data.index,close_data,facecolor='blue')
         self.cs_chart_axis.plot(data['Close'],lw=5,alpha=0.6,color='blue')
@@ -2206,201 +2115,295 @@ class Main(QMainWindow,Ui_MainWindow):
     
         axis = self.cs_chart_axis
         fig = self.cs_chart_canvas
+        et = time.time()
+        print 'company_summary', et-st
         series = 'Close'
-        self.tc_set_axis(axis,symbol,fig,series)
-        et = time.time()
-        print 'company', et-st
+        self.tc_set_axis(axis,symbol,fig,series,data)
+        self.cs_competitor_table()
+        self.cs_hist_table()
 
-    def sector_summary(self):
-        basic_chg = basic_data[]
+    def cs_pages(self):
+        cs_pagesb = [self.cs_smryb,self.cs_histb,self.cs_ratiob,self.cs_finstatb,self.cs_corpinfob]
+        for i, p in enumerate(cs_pagesb):
+            if p.isChecked() == True:
+                self.cs_stackedwidget.setCurrentIndex(i)
+            else:
+                pass
+            p.setChecked(False)
 
-    def financial_window(self):
-        if self.is_rb_2.isChecked():
-            row = [self.is_emp_1,self.is_growth_1,self.is_31,self.is_32,self.is_33,self.is_34,self.is_35,self.is_36,self.is_37,self.is_38,self.is_39,self.is_310,self.label_2954]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_1,self.is_growth_1,self.is_31,self.is_32,self.is_33,self.is_34,self.is_35,self.is_36,self.is_37,self.is_38,self.is_39,self.is_310,self.label_2954]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_3.isChecked():
-            row = [self.is_emp_2,self.is_growth_2,self.is_51,self.is_52,self.is_53,self.is_54,self.is_55,self.is_56,self.is_57,self.is_58,self.is_59,self.is_510,self.label_2956]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_2,self.is_growth_2,self.is_51,self.is_52,self.is_53,self.is_54,self.is_55,self.is_56,self.is_57,self.is_58,self.is_59,self.is_510,self.label_2956]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_4.isChecked():
-            row = [self.is_emp_3,self.is_growth_3,self.is_71,self.is_72,self.is_73,self.is_74,self.is_75,self.is_76,self.is_77,self.is_78,self.is_79,self.is_710,self.label_2957]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_3,self.is_growth_3,self.is_71,self.is_72,self.is_73,self.is_74,self.is_75,self.is_76,self.is_77,self.is_78,self.is_79,self.is_710,self.label_2957]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_6.isChecked():
-            row = [self.is_emp_4,self.is_growth_4,self.is_101,self.is_102,self.is_103,self.is_104,self.is_105,self.is_106,self.is_107,self.is_108,self.is_109,self.is_1010,self.label_2960]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_4,self.is_growth_4,self.is_101,self.is_102,self.is_103,self.is_104,self.is_105,self.is_106,self.is_107,self.is_108,self.is_109,self.is_1010,self.label_2960]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_7.isChecked():
-            row = [self.is_emp_5,self.is_growth_5,self.is_121,self.is_122,self.is_123,self.is_124,self.is_125,self.is_126,self.is_127,self.is_128,self.is_129,self.is_1210,self.label_2962]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_5,self.is_growth_5,self.is_121,self.is_122,self.is_123,self.is_124,self.is_125,self.is_126,self.is_127,self.is_128,self.is_129,self.is_1210,self.label_2962]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_8.isChecked():
-            row = [self.is_emp_6,self.is_growth_6,self.is_141,self.is_142,self.is_143,self.is_144,self.is_145,self.is_146,self.is_147,self.is_148,self.is_149,self.is_1410,self.label_2965]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_6,self.is_growth_6,self.is_141,self.is_142,self.is_143,self.is_144,self.is_145,self.is_146,self.is_147,self.is_148,self.is_149,self.is_1410,self.label_2965]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_9.isChecked():
-            row = [self.is_emp_7,self.is_growth_7,self.is_161,self.is_162,self.is_163,self.is_164,self.is_165,self.is_166,self.is_167,self.is_168,self.is_169,self.is_1610,self.label_2967]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_7,self.is_growth_7,self.is_161,self.is_162,self.is_163,self.is_164,self.is_165,self.is_166,self.is_167,self.is_168,self.is_169,self.is_1610,self.label_2967]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_10.isChecked():
-            row = [self.is_emp_8,self.is_growth_8,self.is_181,self.is_182,self.is_183,self.is_184,self.is_185,self.is_186,self.is_187,self.is_188,self.is_189,self.is_1810,self.label_2969]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_8,self.is_growth_8,self.is_181,self.is_182,self.is_183,self.is_184,self.is_185,self.is_186,self.is_187,self.is_188,self.is_189,self.is_1810,self.label_2969]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_11.isChecked():
-            row = [self.is_emp_9,self.is_growth_9,self.is_201,self.is_202,self.is_203,self.is_204,self.is_205,self.is_206,self.is_207,self.is_208,self.is_209,self.is_2010,self.label_2970]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_9,self.is_growth_9,self.is_201,self.is_202,self.is_203,self.is_204,self.is_205,self.is_206,self.is_207,self.is_208,self.is_209,self.is_2010,self.label_2970]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-            
-        if self.is_rb_12.isChecked():
-            row = [self.is_emp_10,self.is_growth_10,self.is_221,self.is_222,self.is_223,self.is_224,self.is_225,self.is_226,self.is_227,self.is_228,self.is_229,self.is_2210,self.label_2973]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_10,self.is_growth_10,self.is_221,self.is_222,self.is_223,self.is_224,self.is_225,self.is_226,self.is_227,self.is_228,self.is_229,self.is_2210,self.label_2973]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_13.isChecked():
-            row = [self.is_emp_11,self.is_growth_11,self.is_241,self.is_242,self.is_243,self.is_244,self.is_245,self.is_246,self.is_247,self.is_248,self.is_249,self.is_2410,self.label_2974]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_11,self.is_growth_11,self.is_241,self.is_242,self.is_243,self.is_244,self.is_245,self.is_246,self.is_247,self.is_248,self.is_249,self.is_2410,self.label_2974]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_1.isChecked():
-            row = [self.is_emp_1,self.is_growth_1,self.is_31,self.is_32,self.is_33,self.is_34,self.is_35,self.is_36,self.is_37,self.is_38,self.is_39,self.is_310,self.label_2954,
-                   self.is_emp_2,self.is_growth_2,self.is_51,self.is_52,self.is_53,self.is_54,self.is_55,self.is_56,self.is_57,self.is_58,self.is_59,self.is_510,self.label_2956]
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_1,self.is_growth_1,self.is_31,self.is_32,self.is_33,self.is_34,self.is_35,self.is_36,self.is_37,self.is_38,self.is_39,self.is_310,self.label_2954,
-                   self.is_emp_2,self.is_growth_2,self.is_51,self.is_52,self.is_53,self.is_54,self.is_55,self.is_56,self.is_57,self.is_58,self.is_59,self.is_510,self.label_2956]
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-        if self.is_rb_5.isChecked():
-            row = [self.is_emp_4,self.is_growth_4,self.is_101,self.is_102,self.is_103,self.is_104,self.is_105,self.is_106,self.is_107,self.is_108,self.is_109,self.is_1010,self.label_2960,
-                   self.is_emp_5,self.is_growth_5,self.is_121,self.is_122,self.is_123,self.is_124,self.is_125,self.is_126,self.is_127,self.is_128,self.is_129,self.is_1210,self.label_2962,
-                   self.is_emp_6,self.is_growth_6,self.is_141,self.is_142,self.is_143,self.is_144,self.is_145,self.is_146,self.is_147,self.is_148,self.is_149,self.is_1410,self.label_2965]
-
-            for w in row:
-                w.setMaximumHeight(60)
-                w.setMinimumHeight(60)
-        else:
-            row = [self.is_emp_4,self.is_growth_4,self.is_101,self.is_102,self.is_103,self.is_104,self.is_105,self.is_106,self.is_107,self.is_108,self.is_109,self.is_1010,self.label_2960,
-                   self.is_emp_5,self.is_growth_5,self.is_121,self.is_122,self.is_123,self.is_124,self.is_125,self.is_126,self.is_127,self.is_128,self.is_129,self.is_1210,self.label_2962,
-                   self.is_emp_6,self.is_growth_6,self.is_141,self.is_142,self.is_143,self.is_144,self.is_145,self.is_146,self.is_147,self.is_148,self.is_149,self.is_1410,self.label_2965]
-
-            for w in row:
-                w.setMaximumHeight(0)
-                w.setMinimumHeight(0)
-
-    def get_symbol_data(self,symbol):
+    def cs_competitors(self,symbol):
         st = time.time()
-        if str(symbol) in list(basic_data.columns.levels[0]):
-            return basic_data[str(symbol)]
-        elif str(symbol) in list(capgood_data.columns.levels[0]):
-            return capgood_data[str(symbol)]
-        elif str(symbol) in list(condur_data.columns.levels[0]):
-            return condur_data[str(symbol)]
-        elif str(symbol) in list(nondur_data.columns.levels[0]):
-            return nondur_data[str(symbol)]
-        elif str(symbol) in list(conserve_data.columns.levels[0]):
-            return conserve_data[str(symbol)]
-        elif str(symbol) in list(energy_data.columns.levels[0]):
-            return energy_data[str(symbol)]
-        elif str(symbol) in list(finance_data.columns.levels[0]):
-            return finance_data[str(symbol)]
-        elif str(symbol) in list(health_data.columns.levels[0]):
-            return health_data[str(symbol)]
-        elif str(symbol) in list(misc_data.columns.levels[0]):
-            return misc_data[str(symbol)]
-        elif str(symbol) in list(tech_data.columns.levels[0]):
-            return tech_data[str(symbol)]
-        elif str(symbol) in list(trans_data.columns.levels[0]):
-            return trans_data[str(symbol)]
-        elif str(symbol) in list(utility_data.columns.levels[0]):
-            return utility_data[str(symbol)]
+
+        if symbol in loaded_comp_data.keys():
+            et = time.time()
+            print 'cs_competitors preloaded', et-st
+            return loaded_comp_data[symbol]
+        else:
+            path = "C:\\Users\\ajhau\\Desktop\\Sector_data"
+            industry = list(stock_list.loc[stock_list['Symbol']==symbol, 'Industry'])[0]
+            symbols = list(stock_list.loc[stock_list['Industry']==industry, 'Symbol'])
+            sector = list(stock_list.loc[stock_list['Symbol']==symbol,'Sector'])[0] #get the sector for the symbol
+            index_num = sectors.index(sector) #index number for that sector
+
+            #opens the csv for that sector and makes a list for the first row symbols 
+            with open(path+'\\'+sec_file_names[index_num]) as f:
+                reader = csv.reader(f)
+                sec_symbols = next(reader)
+
+            #from that list return the position of the symbols
+            sym_ind = [0]
+            symb = []
+            for i, s in enumerate(sec_symbols):
+                if s in symbols:
+                    sym_ind.append(i)
+                    symb.append(s)
+                else:
+                    pass
+            sym_ind = np.array(sym_ind)
+            symb = sorted(list(set(symb)))
+
+            #get the last row od data for the symbols in symb
+            with open(path+'\\'+sec_file_names[index_num], 'rb') as csvfile:
+                reader = csv.reader(csvfile, delimiter=',')
+                data_rows = []
+                n = 0
+                for row in reader:
+                    if n == 0 or n == 1:
+                        content = list(row[i] for i in sym_ind)
+                        data_rows.append(content)
+                    elif row[0] == '7/28/2017' or row[0] == '2017-07-28':
+                        print True
+                        content = list(row[i] for i in sym_ind)
+                        data_rows.append(content)
+                    n+=1
+
+            data = pd.DataFrame(index=symb,columns=sorted(set(data_rows[1][1:])))
+            for c in range(len(data.columns)):
+                col_data = [data_rows[-1][x] for x in list(range(c+1,len(data_rows[1]),8))]
+                data[data.columns[c]] = col_data
+            mrk = list(data['Mrk Cap'])
+            mrk = [float(mrk[i].split('+')[0][:-1])*(int(10**int(mrk[i].split('+')[1]))) 
+                        if 'E' in mrk[i] else float(mrk[i]) if mrk[i] != '' else 0 for i in range(len(mrk))]
+            names = [list(stock_list.loc[stock_list['Symbol']==symb[i],'Name'])[0] for i in range(len(symb))]
+
+            data['Name'] = names
+            data['Mrk Cap'] = mrk
+            data['Symbol'] = data.index
+            loaded_comp_data[symbol] = data
+
+            et = time.time()
+            print 'cs_competitors',et-st
+            return data
+
+    def cs_hist_table(self):
+        '''calls cs_histable_sort to get the data then fills the table with that data'''
+        st = time.time()
+        symbol = str(self.cs_search.text())
+        data = self.cs_histable_sort()
+
+        edit_columns = [self.cs_hsearch0,self.cs_hsearch1,self.cs_hsearch2,self.cs_hsearch3,self.cs_hsearch4,
+                        self.cs_hsearch5,self.cs_hsearch6,self.cs_hsearch7,self.cs_hsearch8,self.cs_hsearch9,
+                        self.cs_hsearch10,self.cs_hsearch11,self.cs_hsearch12,self.cs_hsearch13,self.cs_hsearch14,
+                        self.cs_hsearch15,self.cs_hsearch16,self.cs_hsearch17,self.cs_hsearch18,self.cs_hsearch19]
+        headers = [str(x.text()) for x in edit_columns]
+        col = [x for x in headers if x != '']
+        data = data[col]
+        self.cs_histable.setRowCount(len(data.index))
+        #fill headers
+        for d, date in enumerate(data.index):
+            item = QtGui.QTableWidgetItem(str(data.index[d]))
+            self.cs_histable.setVerticalHeaderItem(d,item)
+        for h, header in enumerate(data.columns):
+            item = QtGui.QTableWidgetItem(str(data.columns[h]))
+            self.cs_histable.setHorizontalHeaderItem(h,item)
+        #fill table data
+        for c in range(len(col)):
+            #replace old/empty data with new data
+            for r in range(len(data.index)):
+                item = QtGui.QTableWidgetItem('     '+str(data[data.columns[c]][r]))
+                self.cs_histable.setItem(r,c,item)
         et = time.time()
-        print 'get symbol data', et-st
+        print 'cs_hist_table', et-st
 
-        
+    def cs_histable_todate(self, data):
+        st = time.time()
+        #to-date formatting
+        tdate = self.cs_hedit_datet.date()
+        tdate = str(tdate.year())+'-'+str(tdate.month())+'-'+str(tdate.day())
+        tdate = pd.to_datetime(tdate).date()
+        tday = tdate.strftime('%A')
+        tindex =  tday[:2]+'  '+str(tdate)
 
+        if tindex in data.index:
+            tnum = data.index.get_loc(tindex)
+        else:
+            if tday == 'Saturday':
+                tdate = tdate - timedelta(1)
+                tday = tdate.strftime('%A')
+                tindex = tday[:2]+'  '+str(tdate)
+                tnum = data.index.get_loc(tindex)
+            elif tday == 'Sunday':
+                tdate = tdate - timedelta(2)
+                tday = tdate.strftime('%A')
+                tindex = tday[:2]+'  '+str(tdate)
+                tnum = data.index.get_loc(tindex)
+        et = time.time()
+        print 'cs_histable_todate', et-st
+        return tnum
 
+    def cs_histable_fromdate(self, data):
+        st = time.time()
+        #from-date formatting
+        fdate = self.cs_hedit_datef.date()
+        fdate = str(fdate.year())+'-'+str(fdate.month())+'-'+str(fdate.day())
+        fdate = pd.to_datetime(fdate).date()
+        fday = fdate.strftime('%A')
+        findex =  fday[:2]+'  '+str(fdate)
 
+        if findex in data.index:
+            fnum = data.index.get_loc(findex)
+        else:
+            if fday == 'Saturday':
+                fdate = fdate + timedelta(2)
+                fday = fdate.strftime('%A')
+                findex = findex = fday[:2]+'  '+str(fdate)
+                fnum = data.index.get_loc(findex)
+            elif fday == 'Sunday':
+                fdate = fdate + timedelta(1)
+                fday = fdate.strftime('%A')
+                findex = findex = fday[:2]+'  '+str(fdate)
+                fnum = data.index.get_loc(findex)
+        et = time.time()
+        print 'cs_histable_fromdate', et-st
+        return fnum
 
-#str(list(gain1.index)[0])
+    def cs_histable_sort(self):
+        '''sorts the data to fit the chosen date range, then formats the data depending
+           on if daily weekly monthly quarterly or yearly averages is requested'''
+        st = time.time()
+        symbol = str(self.cs_search.text())
+        data = self.get_symbol_data(symbol)
+        dayending = str(self.cs_hist_endingday.currentText()).split()[1][:2]
+
+        if type(data.index[0]) == str:
+            #date index already formatted
+            date = data['Open'].first_valid_index() #first real value
+            ind = data.index.get_loc(date) #index of thet value
+            data = data[data.columns][ind:] 
+            data = data.iloc[::-1]
+        else:
+            #date index need formatting
+            dates = [d.strftime('%A')[:2]+'  '+str(d.date()) for d in data.index]
+            data.index = dates
+            date = data['Open'].first_valid_index() #first real value
+            ind = data.index.get_loc(date) #index of thet value
+            data = data[data.columns][ind:] 
+            data = data.iloc[::-1]
+        tnum = self.cs_histable_todate(data) #index for to date
+        fnum = self.cs_histable_fromdate(data) #index for from date
+        data = data[data.columns][tnum:fnum]
+            
+        #Daily
+        if self.cs_histedit_daily.isChecked() == True:
+            data['Volume'] = ["{:,.0f}".format(float(x)) for x in data['Volume'] if x != 'nan']
+            data['% Change'] = [float(x)*100 for x in data['% Change']]
+            data = data[data.columns].round(2)
+            data['Mrk Cap'] = ["${:,.0f}".format(float(x)) for x in data['Mrk Cap'] if x != 'nan']
+        #Weekly
+        elif self.cs_histedit_weekly.isChecked() == True:
+            fri = [x for x in range(len(data.index)) if str(data.index[x])[:2] == dayending]
+            avgdata = [data[list(data.columns)][x:x+5].mean() for x in fri]
+            wdata = pd.DataFrame(avgdata,index=data.index[fri],columns=data.columns)
+            data = wdata
+            data['Volume'] = ["{:,.0f}".format(float(x)) for x in data['Volume'] if x != 'nan']
+            data['% Change'] = [float(x)*100 for x in data['% Change']]
+            data = data[data.columns].round(2)
+            data['Mrk Cap'] = ["${:,.0f}".format(float(x)) for x in data['Mrk Cap'] if x != 'nan']
+        #Monthly
+        elif self.cs_histedit_monthly.isChecked() == True:                                                                                                  
+            mont = [m.split()[1].split('-')[1] for m in data.index]
+            var = mont[0]
+            ind = []
+            for i in range(len(mont)):
+                if mont[i] == var:
+                    pass
+                else:
+                    ind.append(i)
+                    var = mont[i]   
+            indx = [0] + ind
+            avgdata = [data[data.columns][indx[x]:indx[x+1]].mean() for x in range(len(indx)) if x+1 < len(indx)]
+            data = pd.DataFrame(avgdata,index=data.index[indx[:-1]],columns=data.columns)
+            data['Volume'] = ["{:,.0f}".format(float(x)) for x in data['Volume'] if x != 'nan']
+            data['% Change'] = [float(x)*100 for x in data['% Change']]
+            data = data[data.columns].round(2)
+            data['Mrk Cap'] = ["${:,.0f}".format(float(x)) for x in data['Mrk Cap'] if x != 'nan']
+        #Yearly
+        elif self.cs_histedit_yearly.isChecked() == True:      
+            mont = [m.split()[1].split('-')[0] for m in data.index]
+            var = mont[0]
+            ind = []
+            for i in range(len(mont)):
+                if mont[i] == var:
+                    pass
+                else:
+                    ind.append(i)
+                    var = mont[i]   
+            indx = [0] + ind
+            avgdata = [data[data.columns][indx[x]:indx[x+1]].mean() for x in range(len(indx)) if x+1 < len(indx)]
+            data = pd.DataFrame(avgdata,index=data.index[indx[:-1]],columns=data.columns)
+            data['Volume'] = ["{:,.0f}".format(float(x)) for x in data['Volume'] if x != 'nan']
+            data['% Change'] = [float(x)*100 for x in data['% Change']]
+            data = data[data.columns].round(2)
+            data['Mrk Cap'] = ["${:,.0f}".format(float(x)) for x in data['Mrk Cap'] if x != 'nan'] 
+        else:
+            pass
+
+        et = time.time()
+        print 'cs_histable_sort', et-st
+        return data
+
+    def cs_hist_openedit(self):
+        if self.cs_hist_oedit.text() =='>>>':
+            self.cs_hist_edit.setMinimumHeight(450)
+            self.cs_hist_edit.setMaximumHeight(450)
+            self.cs_hist_oedit.setText('<<<')               
+        else:
+            self.cs_hist_edit.setMinimumHeight(0)
+            self.cs_hist_edit.setMaximumHeight(0)
+            self.cs_hist_oedit.setText('>>>')
+
+    def market_summary(self):
+        filter = str(self.ms_gainer_filter.currentText())
+        symbols = [x.split(':')[1] for x in glpd.index]
+        glpd['Symbol'] = symbols
+        gain_loss = glpd[['Symbols','Mrk Cap','Change','% Change']]
+
+        gainers = [[self.ms_gainer_sym1,self.ms_gainer_sym2,self.ms_gainer_sym3,self.ms_gainer_sym4,self.ms_gainer_sym5],
+                  [self.ms_gainer_name1,self.ms_gainer_name2,self.ms_gainer_name3,self.ms_gainer_name4,self.ms_gainer_name5],
+                  [self.ms_gainer_price1,self.ms_gainer_price2,self.ms_gainer_price3,self.ms_gainer_price4,self.ms_gainer_price5]
+                  [self.ms_gainer_chg1,ms_gainer_chg2,ms_gainer_chg3,ms_gainer_chg4,ms_gainer_chg5]]
+
+        top_five = gain_loss.sort_values('% Change', ascending=False).head(5)
+        try:
+            names = [list(stock_list.loc[stock_list['Symbol']==sym, 'Name'])[0] for sym in top_five['Symbol']]
+            top_five['Name'] = names
+        except:
+            names = ['Not Found','Not Found','Not Found','Not Found','Not Found']
+            top_five['Name'] = names
+        self.ms_gainlose_table(gainers,top_five)
+          
+    def ms_gainlose_table(self,gainers,top_five):
+        top_five = top_five[['Symbols','Name','Mrk Cap','Change','% Change']]
+        for x in range(len(gainers)):
+            for i in range(len(x)):
+                gainers[x][i].setText(top_five[top_five.columns[x]][i])
+
+        #losers = [[self.ms_loser_sym1,self.ms_loser_sym2,self.ms_loser_sym3,self.ms_loser_sym4,self.ms_loser_sym5],
+        #          [self.ms_loser_name1,self.ms_loser_name2,self.ms_loser_name3,self.ms_loser_name4,self.ms_loser_name5],
+        #          [self.ms_loser_price1,self.ms_loser_price2,self.ms_loser_price3,self.ms_loser_price4,self.ms_loser_price5]
+        #          [self.ms_loser_chg1,ms_loser_chg2,ms_loser_chg3,ms_loser_chg4,ms_loser_chg5]]
+
+        #bottom_five = gain_loss.sort_values('% Change', ascending=False).tail(5)
 
 
 
@@ -2413,3 +2416,12 @@ if __name__ == '__main__':
 
     main.show()
     sys.exit(app.exec_())
+
+
+
+
+
+
+
+
+
